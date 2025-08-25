@@ -1,0 +1,17 @@
+[package]
+name = "capsule-cli"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "capsule"
+path = "src/main.rs"
+
+[dependencies]
+encryptor-wasi = { path = "../encryptor-wasi" }
+clap = { workspace = true }
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+anyhow = { workspace = true }
+ipfs-api-backend-hyper = { workspace = true }

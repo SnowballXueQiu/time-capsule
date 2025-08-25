@@ -1,0 +1,25 @@
+{
+  "name": "@time-capsule/sdk",
+  "version": "0.1.0",
+  "description": "TypeScript SDK for Decentralized Time Capsule",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "vitest",
+    "lint": "eslint src --ext .ts,.tsx",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@mysten/sui.js": "^0.49.0",
+    "@time-capsule/types": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.2.0",
+    "vitest": "^0.34.0",
+    "eslint": "^9.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.0.0",
+    "@typescript-eslint/parser": "^8.0.0"
+  }
+}

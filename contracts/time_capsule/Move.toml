@@ -1,0 +1,10 @@
+[package]
+name = "time_capsule"
+version = "0.0.1"
+edition = "2024.beta"
+
+[dependencies]
+Sui = { local = "../../sui/crates/sui-framework/packages/sui-framework" }
+
+[addresses]
+time_capsule = "0x0"
