@@ -8,9 +8,15 @@ import { useCapsuleUpdates } from "../../hooks/useCapsuleUpdates";
 
 interface CapsuleListProps {
   onCapsuleSelect?: (capsule: Capsule) => void;
+  onUnlock?: (capsule: Capsule) => void;
+  onApprove?: (capsule: Capsule) => void;
 }
 
-export function CapsuleList({ onCapsuleSelect }: CapsuleListProps) {
+export function CapsuleList({
+  onCapsuleSelect,
+  onUnlock,
+  onApprove,
+}: CapsuleListProps) {
   const currentAccount = useCurrentAccount();
   const { capsules, loading, error, refreshCapsules } = useCapsuleUpdates();
 
@@ -89,6 +95,9 @@ export function CapsuleList({ onCapsuleSelect }: CapsuleListProps) {
             capsule={capsule}
             status={capsule.status}
             onClick={() => onCapsuleSelect?.(capsule)}
+            onUnlock={onUnlock}
+            onApprove={onApprove}
+            currentUserAddress={currentAccount?.address}
           />
         ))}
       </div>

@@ -25,9 +25,19 @@ interface CapsuleCardProps {
   capsule: Capsule;
   status: CapsuleStatus;
   onClick?: () => void;
+  onUnlock?: (capsule: Capsule) => void;
+  onApprove?: (capsule: Capsule) => void;
+  currentUserAddress?: string;
 }
 
-export function CapsuleCard({ capsule, status, onClick }: CapsuleCardProps) {
+export function CapsuleCard({
+  capsule,
+  status,
+  onClick,
+  onUnlock,
+  onApprove,
+  currentUserAddress,
+}: CapsuleCardProps) {
   const [currentTime, setCurrentTime] = useState(Date.now());
 
   // Update current time every second for real-time countdown
@@ -140,6 +150,28 @@ export function CapsuleCard({ capsule, status, onClick }: CapsuleCardProps) {
     return <div className="text-gray-600 text-sm">{status.statusMessage}</div>;
   };
 
+  const canUserApprove = () => {
+    return (
+      capsule.unlockCondition.type === "multisig" &&
+      !capsule.unlocked &&
+      currentUserAddress &&
+      !capsule.unlockCondition.approvals?.includes(currentUserAddress)
+    );
+  };
+
+  const canUserUnlock = () => {
+    return (
+      !capsule.unlocked &&
+      status.canUnlock &&
+      currentUserAddress === capsule.owner
+    );
+  };
+
+  const handleQuickAction = (e: React.MouseEvent, action: () => void) => {
+    e.stopPropagation();
+    action();
+  };
+
   return (
     <div
       className={`bg-white rounded-lg shadow-md border-2 transition-all duration-200 cursor-pointer hover:shadow-lg ${
@@ -180,6 +212,28 @@ export function CapsuleCard({ capsule, status, onClick }: CapsuleCardProps) {
 
         {/* Progress/Status */}
         <div className="mb-4">{renderConditionProgress()}</div>
+
+        {/* Quick Actions */}
+        {(canUserUnlock() || canUserApprove()) && (
+          <div className="mb-4 flex space-x-2">
+            {canUserUnlock() && onUnlock && (
+              <button
+                onClick={(e) => handleQuickAction(e, () => onUnlock(capsule))}
+                className="flex-1 px-3 py-2 bg-green-500 text-white text-sm rounded-lg hover:bg-green-600 transition-colors font-medium"
+              >
+                🔓 Unlock
+              </button>
+            )}
+            {canUserApprove() && onApprove && (
+              <button
+                onClick={(e) => handleQuickAction(e, () => onApprove(capsule))}
+                className="flex-1 px-3 py-2 bg-blue-500 text-white text-sm rounded-lg hover:bg-blue-600 transition-colors font-medium"
+              >
+                ✅ Approve
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Footer */}
         <div className="flex items-center justify-between pt-4 border-t border-gray-100">
