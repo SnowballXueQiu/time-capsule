@@ -1,7 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  transpilePackages: ["@time-capsule/sdk", "@time-capsule/types"],
   experimental: {
-    transpilePackages: ["@time-capsule/sdk", "@time-capsule/types"],
+    webpackBuildWorker: true,
   },
   webpack: (config) => {
     config.resolve.fallback = {

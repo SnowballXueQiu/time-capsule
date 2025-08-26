@@ -7,16 +7,15 @@
     "preinstall": "npx only-allow pnpm",
     "postinstall": "pnpm setup:sui",
     "setup:sui": "node scripts/setup-sui.js",
-    "build": "turbo build",
-    "dev": "turbo dev",
-    "test": "turbo test",
-    "lint": "turbo lint",
-    "clean": "turbo clean",
-    "sui": "./bin/sui/sui.exe",
+    "build": "pnpm -r --filter='!@time-capsule/web' build && pnpm --filter=@time-capsule/web build",
+    "dev": "pnpm -r --parallel dev",
+    "test": "pnpm -r test",
+    "lint": "pnpm -r lint",
+    "clean": "pnpm -r clean",
+    "sui": "bin\\sui.exe",
     "verify": "node scripts/verify-setup.js"
   },
   "devDependencies": {
-    "turbo": "^1.10.0",
     "typescript": "^5.2.0",
     "@types/node": "^20.8.0",
     "only-allow": "^1.2.1"

@@ -76,7 +76,27 @@ jspm_packages/
 # Gatsby files
 .cache/
 public
+
+# Build caches and artifacts
 .turbo/
+.rollup.cache/
+.tsbuildinfo
+*.tsbuildinfo
+.eslintcache
+.stylelintcache
+
+# Rollup cache
+.rollup/
+rollup.cache/
+
+# TypeScript incremental compilation
+tsconfig.tsbuildinfo
+
+# Vite cache
+.vite/
+
+# Webpack cache
+.webpack/
 
 # Storybook build outputs
 .out
