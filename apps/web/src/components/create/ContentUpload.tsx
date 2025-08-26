@@ -12,7 +12,19 @@ export function ContentUpload({ onSubmit }: ContentUploadProps) {
   const [textContent, setTextContent] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [dragActive, setDragActive] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // 2MB file size limit
+  const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2MB in bytes
+
+  const formatFileSize = (bytes: number): string => {
+    if (bytes === 0) return "0 Bytes";
+    const k = 1024;
+    const sizes = ["Bytes", "KB", "MB", "GB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
+  };
 
   const handleDrag = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -24,25 +36,51 @@ export function ContentUpload({ onSubmit }: ContentUploadProps) {
     }
   }, []);
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragActive(false);
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setDragActive(false);
 
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      const file = e.dataTransfer.files[0];
-      setSelectedFile(file);
-      setContentType("file");
-    }
-  }, []);
+      if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+        const file = e.dataTransfer.files[0];
+
+        if (file.size > MAX_FILE_SIZE) {
+          setError(
+            `File size exceeds limit. Maximum allowed ${formatFileSize(
+              MAX_FILE_SIZE
+            )}, current file ${formatFileSize(file.size)}`
+          );
+          return;
+        }
+
+        setError(null);
+        setSelectedFile(file);
+        setContentType("file");
+      }
+    },
+    [MAX_FILE_SIZE]
+  );
 
   const handleFileSelect = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       if (e.target.files && e.target.files[0]) {
-        setSelectedFile(e.target.files[0]);
+        const file = e.target.files[0];
+
+        if (file.size > MAX_FILE_SIZE) {
+          setError(
+            `File size exceeds limit. Maximum allowed ${formatFileSize(
+              MAX_FILE_SIZE
+            )}, current file ${formatFileSize(file.size)}`
+          );
+          return;
+        }
+
+        setError(null);
+        setSelectedFile(file);
       }
     },
-    []
+    [MAX_FILE_SIZE]
   );
 
   const handleSubmit = useCallback(
@@ -51,11 +89,22 @@ export function ContentUpload({ onSubmit }: ContentUploadProps) {
 
       if (contentType === "text") {
         if (!textContent.trim()) {
-          alert("Please enter some text content");
+          setError("Please enter text content");
           return;
         }
 
         const content = new TextEncoder().encode(textContent);
+
+        if (content.length > MAX_FILE_SIZE) {
+          setError(
+            `Text content too large. Maximum allowed ${formatFileSize(
+              MAX_FILE_SIZE
+            )}, current content ${formatFileSize(content.length)}`
+          );
+          return;
+        }
+
+        setError(null);
         onSubmit({
           content,
           contentType: "text/plain",
@@ -63,7 +112,16 @@ export function ContentUpload({ onSubmit }: ContentUploadProps) {
         });
       } else {
         if (!selectedFile) {
-          alert("Please select a file");
+          setError("Please select a file");
+          return;
+        }
+
+        if (selectedFile.size > MAX_FILE_SIZE) {
+          setError(
+            `File size exceeds limit. Maximum allowed ${formatFileSize(
+              MAX_FILE_SIZE
+            )}, current file ${formatFileSize(selectedFile.size)}`
+          );
           return;
         }
 
@@ -71,26 +129,19 @@ export function ContentUpload({ onSubmit }: ContentUploadProps) {
           const arrayBuffer = await selectedFile.arrayBuffer();
           const content = new Uint8Array(arrayBuffer);
 
+          setError(null);
           onSubmit({
             content,
             contentType: selectedFile.type || "application/octet-stream",
             filename: selectedFile.name,
           });
         } catch (error) {
-          alert("Failed to read file. Please try again.");
+          setError("Failed to read file, please try again");
         }
       }
     },
-    [contentType, textContent, selectedFile, onSubmit]
+    [contentType, textContent, selectedFile, onSubmit, MAX_FILE_SIZE]
   );
-
-  const formatFileSize = (bytes: number): string => {
-    if (bytes === 0) return "0 Bytes";
-    const k = 1024;
-    const sizes = ["Bytes", "KB", "MB", "GB"];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
-  };
 
   return (
     <div className="bg-white rounded-lg shadow-md p-6">
@@ -99,6 +150,19 @@ export function ContentUpload({ onSubmit }: ContentUploadProps) {
       </h2>
 
       <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Error message */}
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+            <div className="flex items-start">
+              <div className="text-red-400 text-xl mr-3">⚠️</div>
+              <div>
+                <h3 className="text-red-800 font-medium">Error</h3>
+                <p className="text-red-600 text-sm mt-1">{error}</p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Content type selector */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-3">
@@ -148,8 +212,11 @@ export function ContentUpload({ onSubmit }: ContentUploadProps) {
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
             />
             <div className="mt-2 text-sm text-gray-500">
-              {textContent.length} characters • {new Blob([textContent]).size}{" "}
-              bytes
+              {textContent.length} characters •{" "}
+              {formatFileSize(new Blob([textContent]).size)}
+              {new Blob([textContent]).size > MAX_FILE_SIZE && (
+                <span className="text-red-500 ml-2">• Exceeds size limit</span>
+              )}
             </div>
           </div>
         )}
@@ -208,7 +275,7 @@ export function ContentUpload({ onSubmit }: ContentUploadProps) {
                     or click to browse files
                   </div>
                   <div className="text-xs text-gray-400">
-                    Maximum file size: 10MB
+                    Maximum file size: {formatFileSize(MAX_FILE_SIZE)}
                   </div>
                 </div>
               )}
