@@ -11,13 +11,19 @@ import type {
 } from "@time-capsule/types";
 import { CapsuleError, CapsuleSDKError } from "@time-capsule/types";
 import { EncryptedStorage } from "./encryption/index";
-import { IPFSClient } from "./ipfs/index";
+import { IPFSClient, createPinataIPFSClient } from "./ipfs/index";
 
 export interface CapsuleSDKConfig {
   network?: "mainnet" | "testnet" | "devnet" | "localnet";
   rpcUrl?: string;
   packageId?: string;
   ipfsUrl?: string;
+  // Pinata configuration
+  usePinata?: boolean;
+  pinataApiKey?: string;
+  pinataApiSecret?: string;
+  pinataJWT?: string;
+  pinataGateway?: string;
 }
 
 export interface CapsuleQueryOptions {
@@ -61,15 +67,26 @@ export class CapsuleSDK {
     this.client = new SuiClient({ url: rpcUrl });
     this.packageId = config.packageId || "0x0"; // Will be set after contract deployment
 
-    // Initialize encrypted storage
-    this.encryptedStorage = new EncryptedStorage({
-      ipfsUrl: config.ipfsUrl,
-    });
+    // Initialize IPFS client (Pinata or traditional IPFS)
+    if (config.usePinata !== false) {
+      // Use Pinata by default
+      this.ipfs = createPinataIPFSClient({
+        pinataApiKey: config.pinataApiKey,
+        pinataApiSecret: config.pinataApiSecret,
+        pinataJWT: config.pinataJWT,
+        pinataGateway: config.pinataGateway,
+        timeout: 30000,
+        retries: 3,
+      });
+    } else {
+      // Use traditional IPFS
+      this.ipfs = new IPFSClient({
+        url: config.ipfsUrl || "https://ipfs.infura.io:5001",
+      });
+    }
 
-    // Initialize IPFS client
-    this.ipfs = new IPFSClient({
-      url: config.ipfsUrl || "https://ipfs.infura.io:5001",
-    });
+    // Initialize encrypted storage
+    this.encryptedStorage = new EncryptedStorage(this.ipfs);
   }
 
   /**

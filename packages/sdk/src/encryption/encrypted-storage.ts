@@ -4,6 +4,7 @@ import { WASMEncryption, WASMEncryptionError } from "./wasm-loader.js";
 export interface EncryptedStorageConfig {
   ipfsUrl?: string;
   wasmPath?: string;
+  ipfsClient?: IPFSClient;
 }
 
 export interface StorageEncryptionResult {
@@ -40,10 +41,17 @@ export class EncryptedStorage {
   private wasmEncryption: WASMEncryption;
   private initialized = false;
 
-  constructor(config: EncryptedStorageConfig = {}) {
-    this.ipfsClient = new IPFSClient({
-      url: config.ipfsUrl,
-    });
+  constructor(config: EncryptedStorageConfig | IPFSClient = {}) {
+    // Support both config object and direct IPFSClient instance
+    if (config instanceof IPFSClient) {
+      this.ipfsClient = config;
+    } else {
+      this.ipfsClient =
+        config.ipfsClient ||
+        new IPFSClient({
+          url: config.ipfsUrl,
+        });
+    }
     this.storageManager = new StorageManager(this.ipfsClient);
     this.wasmEncryption = new WASMEncryption();
   }

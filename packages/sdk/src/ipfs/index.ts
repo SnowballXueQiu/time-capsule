@@ -7,3 +7,5 @@ export {
 } from "./client";
 
 export { StorageManager } from "./storage";
+
+export { createPinataIPFSClient, validatePinataConfig } from "./pinata-config";

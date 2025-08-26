@@ -1,22 +1,40 @@
-"use client";
+import { CapsuleSDK } from "@time-capsule/sdk";
 
-// Client-only SDK wrapper to avoid SSR issues
-let sdkInstance: any = null;
+let sdkInstance: CapsuleSDK | null = null;
 
-export async function getSDK() {
+/**
+ * Get or create a singleton SDK instance configured for Pinata
+ */
+export async function getSDK(): Promise<CapsuleSDK> {
   if (!sdkInstance) {
-    // Dynamic import to avoid SSR issues
-    const { CapsuleSDK } = await import("@time-capsule/sdk");
     sdkInstance = new CapsuleSDK({
-      network: "devnet",
-      // Add other config as needed
+      network: "devnet", // or "testnet", "mainnet"
+      usePinata: true,
+      // Pinata credentials will be automatically loaded from environment variables
+      // NEXT_PUBLIC_PINATA_API_KEY, NEXT_PUBLIC_PINATA_API_SECRET, NEXT_PUBLIC_PINATA_JWT
     });
+
+    // Initialize the SDK
+    await sdkInstance.initialize();
   }
+
   return sdkInstance;
 }
 
-export async function initializeSDK() {
-  const sdk = await getSDK();
-  await sdk.initialize();
-  return sdk;
+/**
+ * Create a new SDK instance (useful for testing or multiple configurations)
+ */
+export function createSDK(config?: any): CapsuleSDK {
+  return new CapsuleSDK({
+    network: "devnet",
+    usePinata: true,
+    ...config,
+  });
+}
+
+/**
+ * Reset the SDK instance (useful for testing or re-initialization)
+ */
+export function resetSDK(): void {
+  sdkInstance = null;
 }

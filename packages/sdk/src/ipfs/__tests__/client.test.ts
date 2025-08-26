@@ -1,18 +1,9 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
 import { IPFSClient, IPFSClientError } from "../client.js";
 
-// Mock IPFS HTTP client
-const mockIPFSClient = {
-  add: vi.fn(),
-  cat: vi.fn(),
-  object: {
-    stat: vi.fn(),
-  },
-};
-
-vi.mock("ipfs-http-client", () => ({
-  create: vi.fn(() => mockIPFSClient),
-}));
+// Mock fetch for Pinata API calls
+const mockFetch = vi.fn();
+global.fetch = mockFetch;
 
 vi.mock("multiformats/cid", () => ({
   CID: {
@@ -33,7 +24,9 @@ describe("IPFSClient", () => {
 
   beforeEach(() => {
     client = new IPFSClient({
-      url: "http://localhost:5001",
+      url: "https://api.pinata.cloud",
+      pinataJWT: "test-jwt-token",
+      pinataGateway: "https://gateway.pinata.cloud",
       timeout: 5000,
       retries: 2,
       retryDelay: 100,
@@ -46,14 +39,19 @@ describe("IPFSClient", () => {
   });
 
   describe("uploadContent", () => {
-    it("should upload content successfully", async () => {
+    it("should upload content successfully via Pinata", async () => {
       const testContent = new Uint8Array([1, 2, 3, 4, 5]);
-      const mockResult = {
-        cid: { toString: () => "QmTest123" },
-        size: 5,
+      const mockResponse = {
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            IpfsHash: "QmTest123",
+            PinSize: 5,
+            Timestamp: "2023-01-01T00:00:00.000Z",
+          }),
       };
 
-      mockIPFSClient.add.mockResolvedValueOnce(mockResult);
+      mockFetch.mockResolvedValueOnce(mockResponse);
 
       const result = await client.uploadContent(testContent);
 
@@ -63,54 +61,72 @@ describe("IPFSClient", () => {
         hash: new Uint8Array([1, 2, 3, 4]),
       });
 
-      expect(mockIPFSClient.add).toHaveBeenCalledWith(testContent, {
-        pin: true,
-        cidVersion: 1,
-      });
+      expect(mockFetch).toHaveBeenCalledWith(
+        "https://api.pinata.cloud/pinning/pinFileToIPFS",
+        expect.objectContaining({
+          method: "POST",
+          headers: expect.objectContaining({
+            Authorization: "Bearer test-jwt-token",
+          }),
+        })
+      );
     });
 
     it("should retry on failure and eventually succeed", async () => {
       const testContent = new Uint8Array([1, 2, 3]);
-      const mockResult = {
-        cid: { toString: () => "QmTest456" },
-        size: 3,
+      const mockErrorResponse = {
+        ok: false,
+        status: 500,
+        statusText: "Internal Server Error",
+        text: () => Promise.resolve("Server error"),
+      };
+      const mockSuccessResponse = {
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            IpfsHash: "QmTest456",
+            PinSize: 3,
+          }),
       };
 
-      mockIPFSClient.add
-        .mockRejectedValueOnce(new Error("Network error"))
-        .mockResolvedValueOnce(mockResult);
+      mockFetch
+        .mockResolvedValueOnce(mockErrorResponse)
+        .mockResolvedValueOnce(mockSuccessResponse);
 
       const result = await client.uploadContent(testContent);
 
       expect(result.cid).toBe("QmTest456");
-      expect(mockIPFSClient.add).toHaveBeenCalledTimes(2);
+      expect(mockFetch).toHaveBeenCalledTimes(2);
     });
 
     it("should throw IPFSClientError after max retries", async () => {
       const testContent = new Uint8Array([1, 2, 3]);
+      const mockErrorResponse = {
+        ok: false,
+        status: 500,
+        statusText: "Internal Server Error",
+        text: () => Promise.resolve("Persistent error"),
+      };
 
-      mockIPFSClient.add.mockRejectedValue(new Error("Persistent error"));
+      mockFetch.mockResolvedValue(mockErrorResponse);
 
       await expect(client.uploadContent(testContent)).rejects.toThrow(
         IPFSClientError
       );
-      expect(mockIPFSClient.add).toHaveBeenCalledTimes(2); // Initial + 1 retry
+      expect(mockFetch).toHaveBeenCalledTimes(2); // Initial + 1 retry
     });
   });
 
   describe("downloadContent", () => {
-    it("should download content successfully", async () => {
+    it("should download content successfully via Pinata Gateway", async () => {
       const testCid = "QmTest123";
       const testContent = new Uint8Array([1, 2, 3, 4, 5]);
-
-      // Mock async iterator for IPFS cat
-      const mockAsyncIterator = {
-        async *[Symbol.asyncIterator]() {
-          yield testContent;
-        },
+      const mockResponse = {
+        ok: true,
+        arrayBuffer: () => Promise.resolve(testContent.buffer),
       };
 
-      mockIPFSClient.cat.mockReturnValueOnce(mockAsyncIterator);
+      mockFetch.mockResolvedValueOnce(mockResponse);
 
       const result = await client.downloadContent(testCid);
 
@@ -118,20 +134,25 @@ describe("IPFSClient", () => {
         content: testContent,
         size: 5,
       });
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        "https://gateway.pinata.cloud/ipfs/QmTest123",
+        expect.objectContaining({
+          method: "GET",
+        })
+      );
     });
 
     it("should verify content hash when provided", async () => {
       const testCid = "QmTest123";
       const testContent = new Uint8Array([1, 2, 3]);
       const expectedHash = new Uint8Array([1, 2, 3, 4]); // Matches mock hash
-
-      const mockAsyncIterator = {
-        async *[Symbol.asyncIterator]() {
-          yield testContent;
-        },
+      const mockResponse = {
+        ok: true,
+        arrayBuffer: () => Promise.resolve(testContent.buffer),
       };
 
-      mockIPFSClient.cat.mockReturnValueOnce(mockAsyncIterator);
+      mockFetch.mockResolvedValueOnce(mockResponse);
 
       const result = await client.downloadContent(testCid, expectedHash);
 
@@ -142,54 +163,46 @@ describe("IPFSClient", () => {
       const testCid = "QmTest123";
       const testContent = new Uint8Array([1, 2, 3]);
       const wrongHash = new Uint8Array([5, 6, 7, 8]); // Different from mock hash
-
-      const mockAsyncIterator = {
-        async *[Symbol.asyncIterator]() {
-          yield testContent;
-        },
+      const mockResponse = {
+        ok: true,
+        arrayBuffer: () => Promise.resolve(testContent.buffer),
       };
 
-      mockIPFSClient.cat.mockReturnValueOnce(mockAsyncIterator);
+      mockFetch.mockResolvedValueOnce(mockResponse);
 
       await expect(client.downloadContent(testCid, wrongHash)).rejects.toThrow(
         IPFSClientError
       );
-    });
-
-    it("should handle multiple chunks", async () => {
-      const testCid = "QmTest123";
-      const chunk1 = new Uint8Array([1, 2]);
-      const chunk2 = new Uint8Array([3, 4, 5]);
-
-      const mockAsyncIterator = {
-        async *[Symbol.asyncIterator]() {
-          yield chunk1;
-          yield chunk2;
-        },
-      };
-
-      mockIPFSClient.cat.mockReturnValueOnce(mockAsyncIterator);
-
-      const result = await client.downloadContent(testCid);
-
-      expect(result.content).toEqual(new Uint8Array([1, 2, 3, 4, 5]));
-      expect(result.size).toBe(5);
     });
   });
 
   describe("contentExists", () => {
     it("should return true when content exists", async () => {
       const testCid = "QmTest123";
-      mockIPFSClient.object.stat.mockResolvedValueOnce({ NumLinks: 0 });
+      const mockResponse = {
+        ok: true,
+      };
+
+      mockFetch.mockResolvedValueOnce(mockResponse);
 
       const exists = await client.contentExists(testCid);
 
       expect(exists).toBe(true);
+      expect(mockFetch).toHaveBeenCalledWith(
+        "https://gateway.pinata.cloud/ipfs/QmTest123",
+        expect.objectContaining({
+          method: "HEAD",
+        })
+      );
     });
 
     it("should return false when content does not exist", async () => {
       const testCid = "QmTest123";
-      mockIPFSClient.object.stat.mockRejectedValueOnce(new Error("Not found"));
+      const mockResponse = {
+        ok: false,
+      };
+
+      mockFetch.mockResolvedValueOnce(mockResponse);
 
       const exists = await client.contentExists(testCid);
 
@@ -200,9 +213,18 @@ describe("IPFSClient", () => {
   describe("getContentStats", () => {
     it("should return content statistics", async () => {
       const testCid = "QmTest123";
-      mockIPFSClient.object.stat.mockResolvedValueOnce({
-        CumulativeSize: 1024,
-      });
+      const mockResponse = {
+        ok: true,
+        headers: {
+          get: vi.fn((header: string) => {
+            if (header === "content-length") return "1024";
+            if (header === "content-type") return "application/octet-stream";
+            return null;
+          }),
+        },
+      };
+
+      mockFetch.mockResolvedValueOnce(mockResponse);
 
       const stats = await client.getContentStats(testCid);
 
@@ -214,9 +236,13 @@ describe("IPFSClient", () => {
 
     it("should throw error when stats cannot be retrieved", async () => {
       const testCid = "QmTest123";
-      mockIPFSClient.object.stat.mockRejectedValueOnce(
-        new Error("Network error")
-      );
+      const mockResponse = {
+        ok: false,
+        status: 404,
+        statusText: "Not Found",
+      };
+
+      mockFetch.mockResolvedValueOnce(mockResponse);
 
       await expect(client.getContentStats(testCid)).rejects.toThrow(
         IPFSClientError
@@ -225,15 +251,23 @@ describe("IPFSClient", () => {
   });
 
   describe("configuration", () => {
-    it("should use default configuration", () => {
+    it("should use default Pinata configuration", () => {
       const defaultClient = new IPFSClient();
-      expect(defaultClient.getClient()).toBeDefined();
+      expect(defaultClient).toBeDefined();
     });
 
     it("should update configuration", () => {
       client.updateConfig({ timeout: 10000 });
       // Configuration update should not throw
       expect(() => client.updateConfig({ retries: 5 })).not.toThrow();
+    });
+
+    it("should support API key authentication", () => {
+      const apiKeyClient = new IPFSClient({
+        pinataApiKey: "test-key",
+        pinataApiSecret: "test-secret",
+      });
+      expect(apiKeyClient).toBeDefined();
     });
   });
 

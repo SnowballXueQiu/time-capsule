@@ -6,6 +6,11 @@ export interface IPFSConfig {
   timeout?: number;
   retries?: number;
   retryDelay?: number;
+  // Pinata specific configuration
+  pinataApiKey?: string;
+  pinataApiSecret?: string;
+  pinataJWT?: string;
+  pinataGateway?: string;
 }
 
 export interface IPFSUploadResult {
@@ -35,20 +40,24 @@ export class IPFSClient {
 
   constructor(config: IPFSConfig = {}) {
     this.config = {
-      url: config.url || "https://ipfs.infura.io:5001",
+      url: config.url || "https://api.pinata.cloud",
       timeout: config.timeout || 30000,
       retries: config.retries || 3,
       retryDelay: config.retryDelay || 1000,
+      pinataApiKey: config.pinataApiKey || "",
+      pinataApiSecret: config.pinataApiSecret || "",
+      pinataJWT: config.pinataJWT || "",
+      pinataGateway: config.pinataGateway || "https://gateway.pinata.cloud",
     };
   }
 
   /**
-   * Upload content to IPFS with retry mechanism
+   * Upload content to IPFS via Pinata with retry mechanism
    */
   async uploadContent(content: Uint8Array): Promise<IPFSUploadResult> {
     return this.withRetry(async () => {
       try {
-        // Create form data for IPFS API
+        // Create form data for Pinata API
         const formData = new FormData();
         // Create a proper ArrayBuffer from Uint8Array
         const buffer = new ArrayBuffer(content.length);
@@ -59,18 +68,44 @@ export class IPFSClient {
         });
         formData.append("file", blob);
 
-        // Upload to IPFS using HTTP API
+        // Add metadata for Pinata
+        const metadata = JSON.stringify({
+          name: `time-capsule-${Date.now()}`,
+          keyvalues: {
+            type: "time-capsule-content",
+            timestamp: Date.now().toString(),
+          },
+        });
+        formData.append("pinataMetadata", metadata);
+
+        // Set up headers for Pinata authentication
+        const headers: Record<string, string> = {};
+
+        if (this.config.pinataJWT) {
+          headers["Authorization"] = `Bearer ${this.config.pinataJWT}`;
+        } else if (this.config.pinataApiKey && this.config.pinataApiSecret) {
+          headers["pinata_api_key"] = this.config.pinataApiKey;
+          headers["pinata_secret_api_key"] = this.config.pinataApiSecret;
+        } else {
+          throw new Error("Pinata authentication credentials not provided");
+        }
+
+        // Upload to Pinata
         const response = await fetch(
-          `${this.config.url}/api/v0/add?pin=true&cid-version=1`,
+          `${this.config.url}/pinning/pinFileToIPFS`,
           {
             method: "POST",
+            headers,
             body: formData,
             signal: AbortSignal.timeout(this.config.timeout),
           }
         );
 
         if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          const errorText = await response.text();
+          throw new Error(
+            `HTTP ${response.status}: ${response.statusText} - ${errorText}`
+          );
         }
 
         const result = await response.json();
@@ -79,13 +114,13 @@ export class IPFSClient {
         const hash = await this.calculateContentHash(content);
 
         return {
-          cid: result.Hash,
-          size: parseInt(result.Size) || content.length,
+          cid: result.IpfsHash,
+          size: parseInt(result.PinSize) || content.length,
           hash,
         };
       } catch (error) {
         throw new IPFSClientError(
-          "Failed to upload content to IPFS",
+          "Failed to upload content to IPFS via Pinata",
           "UPLOAD_FAILED",
           error as Error
         );
@@ -94,7 +129,7 @@ export class IPFSClient {
   }
 
   /**
-   * Download content from IPFS with hash verification
+   * Download content from IPFS via Pinata Gateway with hash verification
    */
   async downloadContent(
     cid: string,
@@ -105,11 +140,11 @@ export class IPFSClient {
         // Validate CID format
         CID.parse(cid);
 
-        // Download content from IPFS using HTTP API
+        // Download content from Pinata Gateway
         const response = await fetch(
-          `${this.config.url}/api/v0/cat?arg=${cid}`,
+          `${this.config.pinataGateway}/ipfs/${cid}`,
           {
-            method: "POST",
+            method: "GET",
             signal: AbortSignal.timeout(this.config.timeout),
           }
         );
@@ -141,7 +176,7 @@ export class IPFSClient {
           throw error;
         }
         throw new IPFSClientError(
-          "Failed to download content from IPFS",
+          "Failed to download content from IPFS via Pinata",
           "DOWNLOAD_FAILED",
           error as Error
         );
@@ -150,18 +185,17 @@ export class IPFSClient {
   }
 
   /**
-   * Check if content exists on IPFS
+   * Check if content exists on IPFS via Pinata
    */
   async contentExists(cid: string): Promise<boolean> {
     try {
       CID.parse(cid);
-      const response = await fetch(
-        `${this.config.url}/api/v0/object/stat?arg=${cid}`,
-        {
-          method: "POST",
-          signal: AbortSignal.timeout(this.config.timeout),
-        }
-      );
+
+      // Try to access the content via Pinata Gateway with HEAD request
+      const response = await fetch(`${this.config.pinataGateway}/ipfs/${cid}`, {
+        method: "HEAD",
+        signal: AbortSignal.timeout(this.config.timeout),
+      });
       return response.ok;
     } catch {
       return false;
@@ -169,27 +203,28 @@ export class IPFSClient {
   }
 
   /**
-   * Get content statistics without downloading
+   * Get content statistics without downloading full content
    */
   async getContentStats(cid: string): Promise<{ size: number; type: string }> {
     try {
       CID.parse(cid);
-      const response = await fetch(
-        `${this.config.url}/api/v0/object/stat?arg=${cid}`,
-        {
-          method: "POST",
-          signal: AbortSignal.timeout(this.config.timeout),
-        }
-      );
+
+      // Use HEAD request to get content info
+      const response = await fetch(`${this.config.pinataGateway}/ipfs/${cid}`, {
+        method: "HEAD",
+        signal: AbortSignal.timeout(this.config.timeout),
+      });
 
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
-      const stat = await response.json();
+      const contentLength = response.headers.get("content-length");
+      const contentType = response.headers.get("content-type");
+
       return {
-        size: stat.CumulativeSize || 0,
-        type: "application/octet-stream", // Default type for encrypted content
+        size: contentLength ? parseInt(contentLength) : 0,
+        type: contentType || "application/octet-stream", // Default type for encrypted content
       };
     } catch (error) {
       throw new IPFSClientError(
