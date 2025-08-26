@@ -153,7 +153,10 @@ export class WASMEncryption {
 
     try {
       // Mock implementation using Web Crypto API SHA-256 (not BLAKE3)
-      const hashBuffer = await crypto.subtle.digest("SHA-256", content);
+      const hashBuffer = await crypto.subtle.digest(
+        "SHA-256",
+        content as BufferSource
+      );
       return new Uint8Array(hashBuffer);
     } catch (error) {
       throw new WASMEncryptionError(`Hashing failed: ${error}`, -1);

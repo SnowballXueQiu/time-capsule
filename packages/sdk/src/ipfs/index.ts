@@ -6,4 +6,4 @@ export {
   type IPFSDownloadResult,
 } from "./client.js";
 
-export { StorageManager } from "./storage.js";
+export { StorageManager } from "./storage";

@@ -33,6 +33,10 @@ export interface UnlockResult {
   content?: Uint8Array;
   contentType?: string;
   error?: string;
+  transactionDigest?: string;
+  eventData?: any;
+  capsuleId?: string;
+  cid?: string;
 }
 
 export interface ApprovalResult {
