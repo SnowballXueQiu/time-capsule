@@ -1,222 +1,288 @@
+use crate::config::Config;
+use crate::sdk::{create_progress_bar, create_spinner};
+use crate::utils::{init_sdk, write_file_content};
 use anyhow::{Context, Result};
-use std::fs;
-use std::io::{self, Write};
+use base64::Engine;
+use clap::Args;
+use console::style;
 use std::path::PathBuf;
 
-use crate::config::Config;
-use crate::utils::{create_sdk_client, load_private_key, read_key_input};
+#[derive(Args)]
+pub struct UnlockArgs {
+    /// Capsule ID to unlock
+    #[arg(short, long)]
+    pub capsule_id: String,
+    /// Encryption key for the capsule
+    #[arg(short, long)]
+    pub encryption_key: String,
+    /// Output file path (optional, defaults to capsule_id.bin)
+    #[arg(short, long)]
+    pub output: Option<PathBuf>,
+    /// Payment amount for payment capsules (in MIST)
+    #[arg(short, long)]
+    pub payment: Option<u64>,
+    /// Output format
+    #[arg(long, default_value = "human")]
+    pub format: String,
+    /// Force overwrite existing output file
+    #[arg(long)]
+    pub force: bool,
+}
 
-pub async fn execute(
-    config: &Config,
-    capsule_id: String,
-    key: Option<String>,
-    payment: Option<u64>,
-    output: Option<PathBuf>,
-    force: bool,
-) -> Result<()> {
-    // Load private key
-    let keypair = load_private_key(config)?;
+pub async fn handle_unlock(args: UnlockArgs, config: &Config) -> Result<()> {
+    println!("{}", style("Unlocking Time Capsule").bold().cyan());
+    println!("{}", "=".repeat(50));
 
-    // Create SDK client
-    let sdk = create_sdk_client(config).await?;
+    // Initialize SDK
+    let spinner = create_spinner("Initializing SDK...");
+    let sdk = init_sdk(config).await?;
+    spinner.finish_with_message("SDK initialized ✓");
 
-    println!("Unlocking capsule: {}", capsule_id);
+    // Validate arguments
+    validate_unlock_args(&args)?;
 
-    // TODO: Get capsule information from SDK
-    // let capsule = sdk.get_capsule_by_id(&capsule_id).await?;
+    // Determine output path
+    let output_path = args
+        .output
+        .unwrap_or_else(|| PathBuf::from(format!("{}.bin", args.capsule_id)));
 
-    // For now, create mock capsule data
-    let capsule = create_mock_capsule(&capsule_id);
-
-    println!("Capsule type: {}", capsule.capsule_type);
-    println!("Status: {}", capsule.status);
-
-    // Validate unlock conditions
-    if capsule.unlocked {
-        println!("⚠️  Capsule has already been unlocked");
-        return Ok(());
-    }
-
-    // Check unlock conditions
-    match capsule.capsule_type.as_str() {
-        "time" => {
-            if !capsule.can_unlock {
-                anyhow::bail!(
-                    "Time-based unlock condition not yet met. {}",
-                    capsule.unlock_info
-                );
-            }
-            println!("✅ Time condition met");
-        }
-
-        "multisig" => {
-            if !capsule.can_unlock {
-                anyhow::bail!("Multisig condition not yet met. {}", capsule.unlock_info);
-            }
-            println!("✅ Multisig condition met");
-        }
-
-        "payment" => {
-            let required_payment = capsule.required_payment.unwrap_or(0);
-            let provided_payment = payment.unwrap_or(0);
-
-            if provided_payment < required_payment {
-                anyhow::bail!(
-                    "Insufficient payment. Required: {} MIST ({} SUI), Provided: {} MIST ({} SUI)",
-                    required_payment,
-                    required_payment as f64 / 1_000_000_000.0,
-                    provided_payment,
-                    provided_payment as f64 / 1_000_000_000.0
-                );
-            }
-            println!("✅ Payment condition met: {} MIST", provided_payment);
-        }
-
-        _ => {
-            anyhow::bail!("Unknown capsule type: {}", capsule.capsule_type);
-        }
-    }
-
-    // Get encryption key
-    let encryption_key = if let Some(key_input) = key {
-        read_key_input(&key_input)?
-    } else {
-        // Prompt for key
-        print!("Enter encryption key (base64): ");
-        io::stdout().flush()?;
-
-        let mut input = String::new();
-        io::stdin().read_line(&mut input)?;
-        input.trim().to_string()
-    };
-
-    if encryption_key.is_empty() {
-        anyhow::bail!("Encryption key is required");
-    }
-
-    // Confirm unlock if not forced
-    if !force {
-        print!("Proceed with unlocking? [y/N]: ");
-        io::stdout().flush()?;
-
-        let mut input = String::new();
-        io::stdin().read_line(&mut input)?;
-
-        if !input.trim().to_lowercase().starts_with('y') {
-            println!("Unlock cancelled");
-            return Ok(());
-        }
-    }
-
-    println!("Unlocking capsule...");
-
-    // TODO: Call SDK to unlock capsule
-    // let unlock_result = sdk.unlock_and_decrypt(
-    //     &capsule_id,
-    //     &encryption_key,
-    //     keypair,
-    //     payment,
-    // ).await?;
-
-    // For now, create mock unlock result
-    let unlock_result = create_mock_unlock_result();
-
-    if !unlock_result.success {
+    // Check if output file exists
+    if output_path.exists() && !args.force {
         anyhow::bail!(
-            "Failed to unlock capsule: {}",
-            unlock_result.error.unwrap_or_default()
+            "Output file already exists: {}. Use --force to overwrite.",
+            output_path.display()
         );
     }
 
-    println!("✅ Capsule unlocked successfully!");
-
-    if let Some(content) = unlock_result.content {
-        // Write content to output file or stdout
-        if let Some(output_path) = output {
-            fs::write(&output_path, &content).with_context(|| {
-                format!("Failed to write content to: {}", output_path.display())
-            })?;
-
-            println!("Content saved to: {}", output_path.display());
-            println!("Content size: {} bytes", content.len());
-        } else {
-            // Write to stdout
-            println!("\n--- Content ---");
-
-            // Try to display as text if it's valid UTF-8
-            match String::from_utf8(content.clone()) {
-                Ok(text) => {
-                    println!("{}", text);
-                }
-                Err(_) => {
-                    println!("Binary content ({} bytes)", content.len());
-                    println!("Use --output <file> to save binary content to a file");
-                }
-            }
-        }
+    println!(
+        "\n{} Unlocking capsule: {}",
+        style("🔓").cyan(),
+        style(&args.capsule_id).bold()
+    );
+    if let Some(payment) = args.payment {
+        println!("Payment amount: {} MIST", payment);
     }
+    println!("Output file: {}", output_path.display());
 
-    if let Some(tx_digest) = unlock_result.transaction_digest {
-        println!("Transaction: {}", tx_digest);
+    // Create progress bar
+    let pb = create_progress_bar(4, "Unlocking capsule...");
+
+    // Unlock and decrypt the capsule
+    let result = sdk
+        .unlock_and_decrypt(
+            &args.capsule_id,
+            &args.encryption_key,
+            args.payment,
+            Some(&pb),
+        )
+        .await?;
+
+    // Handle the result
+    if result.success {
+        if let Some(ref content) = result.content {
+            // Write content to file
+            write_file_content(&output_path, content)
+                .context("Failed to write decrypted content to file")?;
+            display_unlock_success(&result, &output_path, content.len(), &args.format)?;
+        } else {
+            anyhow::bail!("Unlock succeeded but no content was returned");
+        }
+    } else {
+        display_unlock_failure(&result)?;
+        anyhow::bail!("Failed to unlock capsule");
     }
 
     Ok(())
 }
 
-// Mock structures for testing
-struct MockCapsule {
-    capsule_type: String,
-    status: String,
-    unlocked: bool,
-    can_unlock: bool,
-    unlock_info: String,
-    required_payment: Option<u64>,
+fn validate_unlock_args(args: &UnlockArgs) -> Result<()> {
+    // Validate capsule ID format
+    if args.capsule_id.is_empty() {
+        anyhow::bail!("Capsule ID cannot be empty");
+    }
+    if !args.capsule_id.starts_with("0x") {
+        anyhow::bail!("Capsule ID must start with '0x'");
+    }
+
+    // Validate encryption key format
+    if args.encryption_key.is_empty() {
+        anyhow::bail!("Encryption key cannot be empty");
+    }
+
+    // Try to decode the encryption key to validate format
+    base64::engine::general_purpose::STANDARD
+        .decode(&args.encryption_key)
+        .context("Invalid encryption key format (must be base64)")?;
+
+    // Validate payment amount if provided
+    if let Some(payment) = args.payment {
+        if payment == 0 {
+            anyhow::bail!("Payment amount must be greater than 0");
+        }
+    }
+
+    Ok(())
 }
 
-struct MockUnlockResult {
-    success: bool,
-    content: Option<Vec<u8>>,
-    transaction_digest: Option<String>,
-    error: Option<String>,
+fn display_unlock_success(
+    result: &crate::sdk::UnlockResult,
+    output_path: &PathBuf,
+    content_size: usize,
+    format: &str,
+) -> Result<()> {
+    println!(
+        "\n{}",
+        style("Capsule Unlocked Successfully!").bold().green()
+    );
+    println!("{}", "=".repeat(50));
+
+    match format {
+        "json" => {
+            let json = serde_json::json!({
+                "success": result.success,
+                "output_file": output_path.display().to_string(),
+                "content_size": content_size,
+                "transaction_digest": result.transaction_digest,
+            });
+            println!("{}", serde_json::to_string_pretty(&json)?);
+        }
+        _ => {
+            println!(
+                "{} {}",
+                style("Output File:").bold(),
+                style(output_path.display()).cyan()
+            );
+            println!(
+                "{} {}",
+                style("Content Size:").bold(),
+                style(crate::utils::format_file_size(content_size as u64)).cyan()
+            );
+            if let Some(ref tx_digest) = result.transaction_digest {
+                println!(
+                    "{} {}",
+                    style("Transaction:").bold(),
+                    style(tx_digest).cyan()
+                );
+            }
+            println!(
+                "\n{}",
+                style("✅ Content has been saved to the output file.").green()
+            );
+        }
+    }
+
+    Ok(())
 }
 
-fn create_mock_capsule(capsule_id: &str) -> MockCapsule {
-    // Simple mock based on capsule ID pattern
-    if capsule_id.contains("time") {
-        MockCapsule {
-            capsule_type: "time".to_string(),
-            status: "ready".to_string(),
-            unlocked: false,
-            can_unlock: true,
-            unlock_info: "Time condition met".to_string(),
-            required_payment: None,
-        }
-    } else if capsule_id.contains("multisig") {
-        MockCapsule {
-            capsule_type: "multisig".to_string(),
-            status: "ready".to_string(),
-            unlocked: false,
-            can_unlock: true,
-            unlock_info: "3/3 approvals received".to_string(),
-            required_payment: None,
-        }
+fn display_unlock_failure(result: &crate::sdk::UnlockResult) -> Result<()> {
+    println!("\n{}", style("Failed to Unlock Capsule").bold().red());
+    println!("{}", "=".repeat(50));
+
+    if let Some(ref error) = result.error {
+        println!("{} {}", style("Error:").bold().red(), error);
+    }
+
+    println!("\n{}", style("Possible reasons:").bold().yellow());
+    println!("• Unlock conditions not yet met (time not reached, insufficient approvals, payment not made)");
+    println!("• Invalid encryption key");
+    println!("• Capsule does not exist or has already been unlocked");
+    println!("• Network connectivity issues");
+
+    Ok(())
+}
+
+/// Interactive unlock command that guides the user through the process
+pub async fn handle_unlock_interactive(config: &Config) -> Result<()> {
+    use dialoguer::{Confirm, Input};
+
+    println!("{}", style("Interactive Capsule Unlock").bold().cyan());
+    println!("{}", "=".repeat(50));
+
+    // Get capsule ID
+    let capsule_id: String = Input::new()
+        .with_prompt("Enter capsule ID")
+        .validate_with(|input: &String| -> Result<(), &str> {
+            if input.is_empty() {
+                Err("Capsule ID cannot be empty")
+            } else if !input.starts_with("0x") {
+                Err("Capsule ID must start with '0x'")
+            } else {
+                Ok(())
+            }
+        })
+        .interact_text()?;
+
+    // Get encryption key
+    let encryption_key: String = Input::new()
+        .with_prompt("Enter encryption key")
+        .validate_with(|input: &String| -> Result<(), &str> {
+            if input.is_empty() {
+                Err("Encryption key cannot be empty")
+            } else if base64::engine::general_purpose::STANDARD
+                .decode(input)
+                .is_err()
+            {
+                Err("Invalid encryption key format (must be base64)")
+            } else {
+                Ok(())
+            }
+        })
+        .interact_text()?;
+
+    // Ask about payment
+    let needs_payment = Confirm::new()
+        .with_prompt("Is this a payment capsule that requires payment?")
+        .default(false)
+        .interact()?;
+
+    let payment = if needs_payment {
+        Some(
+            Input::new()
+                .with_prompt("Enter payment amount (in MIST)")
+                .validate_with(|input: &u64| -> Result<(), &str> {
+                    if *input == 0 {
+                        Err("Payment amount must be greater than 0")
+                    } else {
+                        Ok(())
+                    }
+                })
+                .interact_text()?,
+        )
     } else {
-        MockCapsule {
-            capsule_type: "payment".to_string(),
-            status: "locked".to_string(),
-            unlocked: false,
-            can_unlock: false,
-            unlock_info: "Payment required".to_string(),
-            required_payment: Some(1_000_000_000), // 1 SUI
-        }
-    }
-}
+        None
+    };
 
-fn create_mock_unlock_result() -> MockUnlockResult {
-    MockUnlockResult {
-        success: true,
-        content: Some(b"This is the decrypted content of the time capsule!".to_vec()),
-        transaction_digest: Some(format!("0x{:x}", rand::random::<u64>())),
-        error: None,
+    // Get output path
+    let default_output = format!("{}.bin", capsule_id);
+    let output_path: String = Input::new()
+        .with_prompt("Enter output file path")
+        .default(default_output)
+        .interact_text()?;
+    let output_path = PathBuf::from(output_path);
+
+    // Check if file exists
+    let force = if output_path.exists() {
+        Confirm::new()
+            .with_prompt("Output file already exists. Overwrite?")
+            .default(false)
+            .interact()?
+    } else {
+        false
+    };
+
+    if output_path.exists() && !force {
+        anyhow::bail!("Operation cancelled by user");
     }
+
+    // Create unlock args and proceed
+    let args = UnlockArgs {
+        capsule_id,
+        encryption_key,
+        output: Some(output_path),
+        payment,
+        format: "human".to_string(),
+        force,
+    };
+
+    handle_unlock(args, config).await
 }

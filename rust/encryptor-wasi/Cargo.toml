@@ -17,4 +17,4 @@ wasi = { workspace = true }
 hex = "0.4"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-getrandom = { version = "0.2", features = ["js"] }
+getrandom = { version = "0.3.3", features = ["js"] }

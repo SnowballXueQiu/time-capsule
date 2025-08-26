@@ -4,15 +4,14 @@ use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use crate::{Network, OutputFormat};
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
     pub network: String,
-    pub rpc_url: Option<String>,
+    pub rpc_url: String,
     pub ipfs_url: String,
     pub package_id: Option<String>,
     pub private_key_path: Option<PathBuf>,
+    pub private_key: Option<String>,
     pub default_output_format: String,
     pub verbose: bool,
 }
@@ -21,10 +20,11 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             network: "devnet".to_string(),
-            rpc_url: None,
+            rpc_url: "https://fullnode.devnet.sui.io:443".to_string(),
             ipfs_url: "https://ipfs.infura.io:5001".to_string(),
             package_id: None,
             private_key_path: None,
+            private_key: None,
             default_output_format: "human".to_string(),
             verbose: false,
         }
@@ -35,7 +35,7 @@ impl Config {
     /// Load configuration from file and CLI arguments
     pub fn load(
         config_path: Option<&Path>,
-        network: Option<&Network>,
+        network: Option<&str>,
         rpc_url: Option<&String>,
         ipfs_url: Option<&String>,
         private_key: Option<&PathBuf>,
@@ -59,7 +59,7 @@ impl Config {
         }
 
         if let Some(rpc_url) = rpc_url {
-            config.rpc_url = Some(rpc_url.clone());
+            config.rpc_url = rpc_url.clone();
         }
 
         if let Some(ipfs_url) = ipfs_url {
@@ -125,7 +125,7 @@ impl Config {
         }
 
         if let Ok(rpc_url) = env::var("CAPSULE_RPC_URL") {
-            self.rpc_url = Some(rpc_url);
+            self.rpc_url = rpc_url;
         }
 
         if let Ok(ipfs_url) = env::var("CAPSULE_IPFS_URL") {
@@ -162,26 +162,23 @@ impl Config {
 
     /// Get the effective RPC URL
     pub fn get_rpc_url(&self) -> String {
-        if let Some(rpc_url) = &self.rpc_url {
-            rpc_url.clone()
-        } else {
-            match self.network.as_str() {
-                "mainnet" => "https://fullnode.mainnet.sui.io:443".to_string(),
-                "testnet" => "https://fullnode.testnet.sui.io:443".to_string(),
-                "devnet" => "https://fullnode.devnet.sui.io:443".to_string(),
-                "localnet" => "http://127.0.0.1:9000".to_string(),
-                _ => "https://fullnode.devnet.sui.io:443".to_string(),
-            }
-        }
+        self.rpc_url.clone()
     }
 
-    /// Get default config file path
+    /// Get the default config file path
     pub fn default_config_path() -> Result<PathBuf> {
-        if let Some(config_dir) = dirs::config_dir() {
-            Ok(config_dir.join("capsule").join("config.toml"))
-        } else {
-            Ok(PathBuf::from(".capsule").join("config.toml"))
-        }
+        let config_dir = dirs::config_dir()
+            .ok_or_else(|| anyhow::anyhow!("Could not determine config directory"))?;
+        Ok(config_dir.join("capsule").join("config.toml"))
+    }
+}
+
+/// Get default config file path
+pub fn default_config_path() -> Result<PathBuf> {
+    if let Some(config_dir) = dirs::config_dir() {
+        Ok(config_dir.join("capsule").join("config.toml"))
+    } else {
+        Ok(PathBuf::from(".capsule").join("config.toml"))
     }
 }
 
