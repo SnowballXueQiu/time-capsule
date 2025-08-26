@@ -20,7 +20,11 @@ export default [
       },
     ],
     plugins: [
-      nodeResolve({ preferBuiltins: false }),
+      nodeResolve({
+        preferBuiltins: false,
+        // Allow resolving workspace packages
+        preferredBuiltins: false,
+      }),
       commonjs(),
       typescript({
         tsconfig: "./tsconfig.json",
@@ -28,7 +32,7 @@ export default [
         outputToFilesystem: true,
       }),
     ],
-    external: ["@mysten/sui.js", "@time-capsule/types"],
+    external: ["@mysten/sui.js"],
   },
   // Type definitions build
   {
@@ -38,6 +42,6 @@ export default [
       format: "es",
     },
     plugins: [dts()],
-    external: ["@mysten/sui.js", "@time-capsule/types"],
+    external: ["@mysten/sui.js"],
   },
 ];
