@@ -10,7 +10,7 @@ module time_capsule::capsule {
     use std::option::{Self, Option};
 
     /// Capsule object that stores encrypted content metadata and unlock conditions
-    struct Capsule has key, store {
+    public struct Capsule has key, store {
         id: UID,
         owner: address,
         cid: String,                    // IPFS content identifier
@@ -21,7 +21,7 @@ module time_capsule::capsule {
     }
 
     /// Unlock condition structure supporting time, multisig, and payment conditions
-    struct UnlockCondition has store {
+    public struct UnlockCondition has store {
         condition_type: u8,             // 1=time, 2=multisig, 3=payment
         unlock_time_ms: Option<u64>,    // Time condition
         threshold: Option<u64>,         // Multisig threshold
@@ -31,20 +31,20 @@ module time_capsule::capsule {
     }
 
     /// Event emitted when a capsule is created
-    struct CapsuleCreated has copy, drop {
+    public struct CapsuleCreated has copy, drop {
         capsule_id: address,
         owner: address,
         condition_type: u8,
     }
 
     /// Event emitted when a capsule is unlocked
-    struct CapsuleUnlocked has copy, drop {
+    public struct CapsuleUnlocked has copy, drop {
         capsule_id: address,
         unlocker: address,
     }
 
     /// Event emitted when a multisig approval is added
-    struct CapsuleApproved has copy, drop {
+    public struct CapsuleApproved has copy, drop {
         capsule_id: address,
         approver: address,
         current_approvals: u64,
@@ -177,14 +177,14 @@ module time_capsule::capsule {
         sui::event::emit(CapsuleApproved {
             capsule_id: object::uid_to_address(&capsule.id),
             approver,
-            current_approvals: vec_set::size(&capsule.unlock_condition.approvals),
+            current_approvals: vec_set::length(&capsule.unlock_condition.approvals),
         });
     }
 
     /// Unlock a capsule
     public fun unlock_capsule(
         capsule: &mut Capsule,
-        payment: Option<Coin<SUI>>,
+        mut payment: Option<Coin<SUI>>,
         clock: &Clock,
         ctx: &mut TxContext
     ) {
@@ -201,7 +201,7 @@ module time_capsule::capsule {
         } else if (capsule.unlock_condition.condition_type == 2) {
             // Multisig unlock
             let threshold = *option::borrow(&capsule.unlock_condition.threshold);
-            let current_approvals = vec_set::size(&capsule.unlock_condition.approvals);
+            let current_approvals = vec_set::length(&capsule.unlock_condition.approvals);
             assert!(current_approvals >= threshold, E_UNLOCK_CONDITIONS_NOT_MET);
         } else if (capsule.unlock_condition.condition_type == 3) {
             // Payment unlock

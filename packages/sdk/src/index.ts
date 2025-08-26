@@ -141,3 +141,5 @@ export class CapsuleSDK {
 }
 
 export * from "@time-capsule/types";
+export * from "./ipfs/index.js";
+export * from "./encryption/index.js";

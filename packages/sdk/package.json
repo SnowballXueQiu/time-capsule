@@ -14,7 +14,9 @@
   },
   "dependencies": {
     "@mysten/sui.js": "^0.49.0",
-    "@time-capsule/types": "workspace:*"
+    "@time-capsule/types": "workspace:*",
+    "ipfs-http-client": "^60.0.1",
+    "multiformats": "^12.1.3"
   },
   "devDependencies": {
     "typescript": "^5.2.0",

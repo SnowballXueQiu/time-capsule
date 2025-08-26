@@ -1,11 +1,17 @@
-use blake3::Hasher;
 use chacha20poly1305::{
-    aead::{Aead, KeyInit, OsRng},
+    aead::{rand_core::RngCore, Aead, KeyInit, OsRng},
     XChaCha20Poly1305, XNonce,
 };
-use rand::RngCore;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
+
+pub mod hash;
+
+// Re-export hash functionality
+pub use hash::{
+    hash_content_bytes, hash_from_hex, hash_multiple_contents, hash_to_hex,
+    verify_content_hash_result, HashError, HashResult,
+};
 
 /// Encryption result containing ciphertext, nonce, and content hash
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -52,11 +58,9 @@ pub fn generate_nonce() -> Result<[u8; 24], EncryptionError> {
     Ok(nonce)
 }
 
-/// Compute BLAKE3 hash of content
+/// Compute BLAKE3 hash of content (legacy function, use hash::hash_content_bytes instead)
 pub fn hash_content(content: &[u8]) -> [u8; 32] {
-    let mut hasher = Hasher::new();
-    hasher.update(content);
-    hasher.finalize().into()
+    hash::hash_content_bytes(content)
 }
 
 /// Encrypt content using XChaCha20-Poly1305
@@ -108,10 +112,164 @@ pub fn decrypt_content(
     Ok(DecryptionResult { content })
 }
 
-/// Verify content hash matches the original
+/// Verify content hash matches the original (legacy function, use hash::verify_content_hash instead)
 pub fn verify_content_hash(content: &[u8], expected_hash: &[u8; 32]) -> bool {
-    let computed_hash = hash_content(content);
-    computed_hash == *expected_hash
+    hash::verify_content_hash(content, expected_hash)
+}
+
+// WASI Interface Functions
+// These functions provide a C-compatible interface for WASM/WASI usage
+
+use std::ptr;
+
+/// WASI-compatible encryption function
+/// Returns 0 on success, non-zero on error
+#[no_mangle]
+pub extern "C" fn wasi_encrypt(
+    content_ptr: *const u8,
+    content_len: usize,
+    key_ptr: *const u8,
+    result_ptr: *mut u8,
+    result_len_ptr: *mut usize,
+) -> i32 {
+    if content_ptr.is_null()
+        || key_ptr.is_null()
+        || result_ptr.is_null()
+        || result_len_ptr.is_null()
+    {
+        return -1; // Invalid parameters
+    }
+
+    unsafe {
+        let content = std::slice::from_raw_parts(content_ptr, content_len);
+        let key_slice = std::slice::from_raw_parts(key_ptr, 32);
+
+        let mut key = [0u8; 32];
+        key.copy_from_slice(key_slice);
+
+        match encrypt_content(content, &key) {
+            Ok(encrypted) => {
+                let serialized = match serde_json::to_vec(&encrypted) {
+                    Ok(data) => data,
+                    Err(_) => return -2, // Serialization error
+                };
+
+                if serialized.len() > *result_len_ptr {
+                    *result_len_ptr = serialized.len();
+                    return -3; // Buffer too small
+                }
+
+                ptr::copy_nonoverlapping(serialized.as_ptr(), result_ptr, serialized.len());
+                *result_len_ptr = serialized.len();
+                0 // Success
+            }
+            Err(_) => -4, // Encryption error
+        }
+    }
+}
+
+/// WASI-compatible decryption function
+/// Returns 0 on success, non-zero on error
+#[no_mangle]
+pub extern "C" fn wasi_decrypt(
+    ciphertext_ptr: *const u8,
+    ciphertext_len: usize,
+    nonce_ptr: *const u8,
+    key_ptr: *const u8,
+    result_ptr: *mut u8,
+    result_len_ptr: *mut usize,
+) -> i32 {
+    if ciphertext_ptr.is_null()
+        || nonce_ptr.is_null()
+        || key_ptr.is_null()
+        || result_ptr.is_null()
+        || result_len_ptr.is_null()
+    {
+        return -1; // Invalid parameters
+    }
+
+    unsafe {
+        let ciphertext = std::slice::from_raw_parts(ciphertext_ptr, ciphertext_len);
+        let nonce_slice = std::slice::from_raw_parts(nonce_ptr, 24);
+        let key_slice = std::slice::from_raw_parts(key_ptr, 32);
+
+        let mut nonce = [0u8; 24];
+        let mut key = [0u8; 32];
+        nonce.copy_from_slice(nonce_slice);
+        key.copy_from_slice(key_slice);
+
+        match decrypt_content(ciphertext, &nonce, &key) {
+            Ok(decrypted) => {
+                if decrypted.content.len() > *result_len_ptr {
+                    *result_len_ptr = decrypted.content.len();
+                    return -3; // Buffer too small
+                }
+
+                ptr::copy_nonoverlapping(
+                    decrypted.content.as_ptr(),
+                    result_ptr,
+                    decrypted.content.len(),
+                );
+                *result_len_ptr = decrypted.content.len();
+                0 // Success
+            }
+            Err(_) => -4, // Decryption error
+        }
+    }
+}
+
+/// WASI-compatible hash function
+/// Returns 0 on success, non-zero on error
+#[no_mangle]
+pub extern "C" fn wasi_hash(content_ptr: *const u8, content_len: usize, hash_ptr: *mut u8) -> i32 {
+    if content_ptr.is_null() || hash_ptr.is_null() {
+        return -1; // Invalid parameters
+    }
+
+    unsafe {
+        let content = std::slice::from_raw_parts(content_ptr, content_len);
+        let hash = hash_content(content);
+        ptr::copy_nonoverlapping(hash.as_ptr(), hash_ptr, 32);
+        0 // Success
+    }
+}
+
+/// WASI-compatible key generation function
+/// Returns 0 on success, non-zero on error
+#[no_mangle]
+pub extern "C" fn wasi_generate_key(key_ptr: *mut u8) -> i32 {
+    if key_ptr.is_null() {
+        return -1; // Invalid parameters
+    }
+
+    match generate_key() {
+        Ok(key) => {
+            unsafe {
+                ptr::copy_nonoverlapping(key.as_ptr(), key_ptr, 32);
+            }
+            0 // Success
+        }
+        Err(_) => -2, // Key generation error
+    }
+}
+
+/// WASI-compatible nonce generation function
+/// Returns 0 on success, non-zero on error
+#[no_mangle]
+pub extern "C" fn wasi_generate_nonce(nonce_ptr: *mut u8) -> i32 {
+    if nonce_ptr.is_null() {
+        return -1; // Invalid parameters
+    }
+
+    match generate_nonce() {
+        Ok(nonce) => {
+            unsafe {
+                ptr::copy_nonoverlapping(nonce.as_ptr(), nonce_ptr, 24);
+            }
+            0 // Success
+        }
+        Err(_) => -2, // Nonce generation error
+    }
 }
 
 #[cfg(test)]
