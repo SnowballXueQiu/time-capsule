@@ -131,7 +131,7 @@ export class CapsuleSDK {
       // Build transaction
       const tx = new TransactionBlock();
       tx.moveCall({
-        target: `${this.packageId}::time_capsule::create_time_capsule`,
+        target: `${this.packageId}::capsule::create_time_capsule`,
         arguments: [
           tx.pure(storageResult.cid),
           tx.pure(Array.from(storageResult.contentHash)),
@@ -201,7 +201,7 @@ export class CapsuleSDK {
       // Build transaction
       const tx = new TransactionBlock();
       tx.moveCall({
-        target: `${this.packageId}::time_capsule::create_multisig_capsule`,
+        target: `${this.packageId}::capsule::create_multisig_capsule`,
         arguments: [
           tx.pure(storageResult.cid),
           tx.pure(Array.from(storageResult.contentHash)),
@@ -271,7 +271,7 @@ export class CapsuleSDK {
       // Build transaction
       const tx = new TransactionBlock();
       tx.moveCall({
-        target: `${this.packageId}::time_capsule::create_paid_capsule`,
+        target: `${this.packageId}::capsule::create_paid_capsule`,
         arguments: [
           tx.pure(storageResult.cid),
           tx.pure(Array.from(storageResult.contentHash)),
@@ -332,7 +332,7 @@ export class CapsuleSDK {
       const response = await this.client.getOwnedObjects({
         owner,
         filter: {
-          StructType: `${this.packageId}::time_capsule::Capsule`,
+          StructType: `${this.packageId}::capsule::TimeCapsule`,
         },
         options: {
           showContent: options.showContent !== false,
@@ -629,7 +629,7 @@ export class CapsuleSDK {
           }
           const [coin] = tx.splitCoins(tx.gas, [payment]);
           tx.moveCall({
-            target: `${this.packageId}::time_capsule::unlock_capsule`,
+            target: `${this.packageId}::capsule::unlock_capsule`,
             arguments: [
               tx.object(capsuleId),
               coin,
@@ -641,7 +641,7 @@ export class CapsuleSDK {
         case "time":
         case "multisig":
           tx.moveCall({
-            target: `${this.packageId}::time_capsule::unlock_capsule`,
+            target: `${this.packageId}::capsule::unlock_capsule`,
             arguments: [
               tx.object(capsuleId),
               tx.object("0x6"), // Clock object
@@ -710,7 +710,7 @@ export class CapsuleSDK {
       // Build transaction
       const tx = new TransactionBlock();
       tx.moveCall({
-        target: `${this.packageId}::time_capsule::approve_capsule`,
+        target: `${this.packageId}::capsule::approve_capsule`,
         arguments: [tx.object(capsuleId)],
       });
 

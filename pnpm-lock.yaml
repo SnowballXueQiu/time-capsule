@@ -24,8 +24,8 @@ importers:
         specifier: ^0.11.0
         version: 0.11.1(@tanstack/react-query@5.85.5)(@types/react-dom@18.3.7)(@types/react@18.3.24)(react-dom@18.3.1)(react@18.3.1)
       '@mysten/sui.js':
-        specifier: ^0.54.1
-        version: 0.54.1(typescript@5.9.2)
+        specifier: ^0.49.1
+        version: 0.49.1
       '@tanstack/react-query':
         specifier: ^5.0.0
         version: 5.85.5(react@18.3.1)

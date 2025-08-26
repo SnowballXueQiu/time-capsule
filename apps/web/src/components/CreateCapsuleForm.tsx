@@ -94,14 +94,6 @@ export function CreateCapsuleForm() {
           )
         );
 
-        // Create a mock keypair for now - in production this would use the wallet
-        const { Ed25519Keypair } = await import(
-          "@mysten/sui.js/keypairs/ed25519"
-        );
-        const keypair = new Ed25519Keypair();
-
-        let result: CapsuleCreationResult;
-
         // Step 2-4: Create capsule based on type
         setCreationSteps((prev) =>
           prev.map((s) =>
@@ -113,6 +105,54 @@ export function CreateCapsuleForm() {
           )
         );
 
+        let result: CapsuleCreationResult;
+
+        // Step 2: Upload to IPFS and encrypt content
+        const { EncryptedStorage, createPinataIPFSClient } = await import(
+          "@time-capsule/sdk"
+        );
+
+        const ipfs = createPinataIPFSClient({
+          pinataApiKey: process.env.NEXT_PUBLIC_PINATA_API_KEY,
+          pinataApiSecret: process.env.NEXT_PUBLIC_PINATA_API_SECRET,
+          pinataJWT: process.env.NEXT_PUBLIC_PINATA_JWT,
+          pinataGateway: process.env.NEXT_PUBLIC_PINATA_GATEWAY,
+          timeout: 30000,
+          retries: 3,
+        });
+
+        const encryptedStorage = new EncryptedStorage(ipfs);
+        await encryptedStorage.initialize();
+
+        const storageResult = await encryptedStorage.storeContent(
+          content.content,
+          "application/octet-stream"
+        );
+
+        setCreationSteps((prev) =>
+          prev.map((s) =>
+            s.id === "upload"
+              ? { ...s, status: "completed" }
+              : s.id === "transaction"
+              ? { ...s, status: "in-progress" }
+              : s
+          )
+        );
+
+        // Step 3: Build and execute transaction based on condition type
+        setCreationSteps((prev) =>
+          prev.map((s) =>
+            s.id === "transaction" ? { ...s, status: "in-progress" } : s
+          )
+        );
+
+        // Import TransactionBlock from sui.js
+        const { TransactionBlock } = await import(
+          "@mysten/sui.js/transactions"
+        );
+
+        const tx = new TransactionBlock();
+
         switch (condition.type) {
           case "time":
             if (!condition.unlockTime) {
@@ -120,38 +160,109 @@ export function CreateCapsuleForm() {
                 "Unlock time is required for time-based capsules"
               );
             }
-            result = await sdk.createTimeCapsule(
-              content.content,
-              condition.unlockTime,
-              keypair
-            );
+            tx.moveCall({
+              target: `${process.env.NEXT_PUBLIC_PACKAGE_ID}::capsule::create_time_capsule`,
+              arguments: [
+                tx.pure(storageResult.cid),
+                tx.pure(Array.from(storageResult.contentHash)),
+                tx.pure(condition.unlockTime),
+              ],
+            });
             break;
 
           case "multisig":
             if (!condition.threshold) {
               throw new Error("Threshold is required for multisig capsules");
             }
-            result = await sdk.createMultisigCapsule(
-              content.content,
-              condition.threshold,
-              keypair
-            );
+            tx.moveCall({
+              target: `${process.env.NEXT_PUBLIC_PACKAGE_ID}::capsule::create_multisig_capsule`,
+              arguments: [
+                tx.pure(storageResult.cid),
+                tx.pure(Array.from(storageResult.contentHash)),
+                tx.pure(condition.threshold),
+              ],
+            });
             break;
 
           case "payment":
             if (!condition.price) {
               throw new Error("Price is required for paid capsules");
             }
-            result = await sdk.createPaidCapsule(
-              content.content,
-              condition.price * 1_000_000_000, // Convert SUI to MIST
-              keypair
-            );
+            tx.moveCall({
+              target: `${process.env.NEXT_PUBLIC_PACKAGE_ID}::capsule::create_paid_capsule`,
+              arguments: [
+                tx.pure(storageResult.cid),
+                tx.pure(Array.from(storageResult.contentHash)),
+                tx.pure(condition.price * 1_000_000_000), // Convert SUI to MIST
+              ],
+            });
             break;
 
           default:
             throw new Error("Invalid unlock condition type");
         }
+
+        // Step 4: Sign and execute transaction with wallet
+        setCreationSteps((prev) =>
+          prev.map((s) =>
+            s.id === "transaction"
+              ? { ...s, status: "completed" }
+              : s.id === "confirm"
+              ? { ...s, status: "in-progress" }
+              : s
+          )
+        );
+
+        // Use wallet to sign and execute transaction
+        const txResult = await new Promise<any>((resolve, reject) => {
+          signAndExecuteTransactionBlock(
+            {
+              transactionBlock: tx,
+              options: {
+                showEffects: true,
+                showObjectChanges: true,
+              },
+            },
+            {
+              onSuccess: resolve,
+              onError: reject,
+            }
+          );
+        });
+
+        if (txResult.effects?.status?.status !== "success") {
+          throw new Error(
+            `Transaction failed: ${txResult.effects?.status?.error}`
+          );
+        }
+
+        // Extract capsule ID from object changes
+        let capsuleId = "";
+        const changes = txResult.objectChanges || [];
+        for (const change of changes) {
+          if (
+            change.type === "created" &&
+            change.objectType?.includes("TimeCapsule")
+          ) {
+            capsuleId = change.objectId;
+            break;
+          }
+        }
+
+        if (!capsuleId) {
+          throw new Error(
+            "Could not extract capsule ID from transaction result"
+          );
+        }
+
+        result = {
+          capsuleId,
+          transactionDigest: txResult.digest,
+          encryptionKey: Buffer.from(storageResult.encryptionKey).toString(
+            "base64"
+          ),
+          cid: storageResult.cid,
+        };
 
         // Mark all steps as completed
         setCreationSteps((prev) =>
