@@ -60,7 +60,7 @@ pub async fn handle_unlock(args: UnlockArgs, config: &Config) -> Result<()> {
         style(&args.capsule_id).bold()
     );
     if let Some(payment) = args.payment {
-        println!("Payment amount: {} MIST", payment);
+        println!("Payment amount: {payment} MIST");
     }
     println!("Output file: {}", output_path.display());
 
@@ -253,7 +253,7 @@ pub async fn handle_unlock_interactive(config: &Config) -> Result<()> {
     };
 
     // Get output path
-    let default_output = format!("{}.bin", capsule_id);
+    let default_output = format!("{capsule_id}.bin");
     let output_path: String = Input::new()
         .with_prompt("Enter output file path")
         .default(default_output)

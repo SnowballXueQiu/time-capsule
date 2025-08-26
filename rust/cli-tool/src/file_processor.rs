@@ -160,8 +160,7 @@ impl FileProcessor {
         let total_count = files.len();
 
         info!(
-            "Validating {} files, total size: {} bytes",
-            total_count, total_size
+            "Validating {total_count} files, total size: {total_size} bytes"
         );
 
         // Check for empty list
@@ -171,12 +170,12 @@ impl FileProcessor {
 
         // Warn about large batches
         if total_count > 100 {
-            warn!("Processing large batch of {} files", total_count);
+            warn!("Processing large batch of {total_count} files");
         }
 
         if total_size > 1024 * 1024 * 1024 {
             // 1GB
-            warn!("Processing large total size: {} bytes", total_size);
+            warn!("Processing large total size: {total_size} bytes");
         }
 
         Ok(())
@@ -202,8 +201,93 @@ impl FileProcessor {
 pub struct BatchProcessor;
 
 impl BatchProcessor {
-    /// Process multiple files with progress reporting
+    /// Process multiple files with progress reporting and parallel execution
     pub async fn process_files<F, Fut, T>(
+        files: Vec<FileInfo>,
+        processor: F,
+        progress_bar: Option<&ProgressBar>,
+    ) -> BatchResult
+    where
+        F: Fn(FileInfo) -> Fut + Send + Sync + 'static,
+        Fut: std::future::Future<Output = Result<T>> + Send + 'static,
+        T: std::fmt::Display + Send + 'static,
+    {
+        let mut successful = Vec::new();
+        let mut failed = Vec::new();
+        let total_size: u64 = files.iter().map(|f| f.size).sum();
+
+        // Process files with controlled concurrency
+        let semaphore = std::sync::Arc::new(tokio::sync::Semaphore::new(4)); // Max 4 concurrent operations
+        let processor = std::sync::Arc::new(processor);
+        let mut tasks = Vec::new();
+
+        for file_info in files.into_iter() {
+            let file_path = file_info.path.display().to_string();
+            let permit = semaphore.clone().acquire_owned().await.unwrap();
+            let processor_clone = processor.clone();
+
+            if let Some(pb) = progress_bar {
+                pb.set_message(format!(
+                    "Processing: {}",
+                    file_info
+                        .path
+                        .file_name()
+                        .unwrap_or_default()
+                        .to_string_lossy()
+                ));
+            }
+
+            let task = tokio::spawn(async move {
+                let _permit = permit; // Keep permit alive
+                let result = processor_clone(file_info).await;
+                (file_path, result)
+            });
+
+            tasks.push(task);
+        }
+
+        // Collect results
+        for task in tasks {
+            match task.await {
+                Ok((file_path, Ok(result))) => {
+                    successful.push(result.to_string());
+                    info!("Successfully processed: {file_path}");
+                }
+                Ok((file_path, Err(e))) => {
+                    let error_msg = e.to_string();
+                    failed.push((file_path.clone(), error_msg.clone()));
+                    error!("Failed to process {file_path}: {error_msg}");
+                }
+                Err(e) => {
+                    let error_msg = format!("Task failed: {e}");
+                    failed.push(("unknown".to_string(), error_msg));
+                    error!("Task execution failed: {e}");
+                }
+            }
+
+            if let Some(pb) = progress_bar {
+                pb.inc(1);
+            }
+        }
+
+        if let Some(pb) = progress_bar {
+            pb.finish_with_message(format!(
+                "Completed: {} successful, {} failed",
+                successful.len(),
+                failed.len()
+            ));
+        }
+
+        BatchResult {
+            total_processed: successful.len() + failed.len(),
+            successful,
+            failed,
+            total_size,
+        }
+    }
+
+    /// Process files sequentially (for operations that require ordering)
+    pub async fn process_files_sequential<F, Fut, T>(
         files: Vec<FileInfo>,
         processor: F,
         progress_bar: Option<&ProgressBar>,
@@ -234,12 +318,12 @@ impl BatchProcessor {
             match processor(file_info).await {
                 Ok(result) => {
                     successful.push(result.to_string());
-                    info!("Successfully processed: {}", file_path);
+                    info!("Successfully processed: {file_path}");
                 }
                 Err(e) => {
                     let error_msg = e.to_string();
                     failed.push((file_path.clone(), error_msg.clone()));
-                    error!("Failed to process {}: {}", file_path, error_msg);
+                    error!("Failed to process {file_path}: {error_msg}");
                 }
             }
 
@@ -285,7 +369,7 @@ impl BatchProcessor {
                 style(result.successful.len()).bold().green()
             );
             for success in &result.successful {
-                println!("  • {}", success);
+                println!("  • {success}");
             }
         }
 
@@ -316,11 +400,11 @@ impl ErrorReporter {
         let mut current = error.source();
         let mut level = 0;
 
-        eprintln!("  {}", error);
+        eprintln!("  {error}");
 
         while let Some(err) = current {
             level += 1;
-            eprintln!("  {}{} {}", "  ".repeat(level), "↳", err);
+            eprintln!("  {}↳ {}", "  ".repeat(level), err);
             current = err.source();
         }
 
@@ -344,5 +428,99 @@ impl ErrorReporter {
         }
 
         eprintln!();
+    }
+
+    /// Generate error summary with suggestions
+    pub fn generate_error_summary(batch_result: &BatchResult) -> String {
+        if batch_result.failed.is_empty() {
+            return format!(
+                "✅ All {} operations completed successfully",
+                batch_result.successful.len()
+            );
+        }
+
+        let mut summary = format!(
+            "⚠️  {} of {} operations failed\n",
+            batch_result.failed.len(),
+            batch_result.total_processed
+        );
+
+        // Categorize errors
+        let mut error_categories = std::collections::HashMap::new();
+        for (_, error) in &batch_result.failed {
+            let category = Self::categorize_error(error);
+            *error_categories.entry(category).or_insert(0) += 1;
+        }
+
+        summary.push_str("\nError categories:\n");
+        for (category, count) in error_categories {
+            summary.push_str(&format!("  • {category}: {count} occurrences\n"));
+        }
+
+        summary.push_str("\nSuggestions:\n");
+        summary.push_str("  • Check file permissions and accessibility\n");
+        summary.push_str("  • Verify network connectivity for IPFS operations\n");
+        summary.push_str("  • Ensure sufficient disk space and memory\n");
+        summary.push_str("  • Review file size limits and format restrictions\n");
+
+        summary
+    }
+
+    /// Categorize error types for better reporting
+    fn categorize_error(error: &str) -> &'static str {
+        if error.contains("permission") || error.contains("access") {
+            "Permission/Access"
+        } else if error.contains("network") || error.contains("connection") {
+            "Network/Connectivity"
+        } else if error.contains("size") || error.contains("large") {
+            "File Size"
+        } else if error.contains("format") || error.contains("invalid") {
+            "Format/Validation"
+        } else if error.contains("encrypt") || error.contains("decrypt") {
+            "Encryption/Decryption"
+        } else if error.contains("ipfs") {
+            "IPFS Storage"
+        } else if error.contains("blockchain") || error.contains("transaction") {
+            "Blockchain/Transaction"
+        } else {
+            "Other"
+        }
+    }
+
+    /// Suggest recovery actions based on error type
+    pub fn suggest_recovery_actions(errors: &[(String, String)]) -> Vec<String> {
+        let mut suggestions = Vec::new();
+        let mut has_permission_errors = false;
+        let mut has_network_errors = false;
+        let mut has_size_errors = false;
+
+        for (_, error) in errors {
+            if error.contains("permission") || error.contains("access") {
+                has_permission_errors = true;
+            }
+            if error.contains("network") || error.contains("connection") {
+                has_network_errors = true;
+            }
+            if error.contains("size") || error.contains("large") {
+                has_size_errors = true;
+            }
+        }
+
+        if has_permission_errors {
+            suggestions
+                .push("Run with appropriate permissions or check file ownership".to_string());
+        }
+        if has_network_errors {
+            suggestions.push("Check network connectivity and IPFS node availability".to_string());
+        }
+        if has_size_errors {
+            suggestions.push("Use --max-size flag to increase file size limits".to_string());
+        }
+
+        if suggestions.is_empty() {
+            suggestions.push("Review error details and try again".to_string());
+        }
+
+        suggestions
     }
 }

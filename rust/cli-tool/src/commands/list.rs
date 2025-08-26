@@ -1,7 +1,7 @@
 use crate::config::Config;
 use crate::sdk::{create_spinner, CapsuleStatus};
 use crate::utils::{format_file_size, format_timestamp, init_sdk, truncate_string};
-use anyhow::{Context, Result};
+use anyhow::Result;
 use clap::Args;
 use console::style;
 
@@ -125,7 +125,7 @@ fn display_table(capsules: &[CapsuleStatus]) -> Result<()> {
             }
             "payment" => {
                 if let Some(price) = capsule.price {
-                    format!("{} MIST", price)
+                    format!("{price} MIST")
                 } else {
                     "Unknown".to_string()
                 }
@@ -245,7 +245,7 @@ fn display_detailed(capsules: &[CapsuleStatus]) -> Result<()> {
                     if !approvals.approvers.is_empty() {
                         println!("{}", style("Approvers:").bold());
                         for approver in &approvals.approvers {
-                            println!("  • {}", approver);
+                            println!("  • {approver}");
                         }
                     }
                 }
@@ -337,7 +337,7 @@ fn format_duration_ms(duration_ms: u64) -> String {
 
 /// Interactive list command with filtering options
 pub async fn handle_list_interactive(config: &Config) -> Result<()> {
-    use dialoguer::{Confirm, Input, MultiSelect, Select};
+    use dialoguer::{Confirm, Input, Select};
 
     println!("{}", style("Interactive Capsule Listing").bold().cyan());
     println!("{}", "=".repeat(50));

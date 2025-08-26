@@ -1,7 +1,7 @@
 use crate::config::Config;
 use crate::sdk::{create_progress_bar, create_spinner};
-use crate::utils::{init_sdk, validate_sui_address};
-use anyhow::{Context, Result};
+use crate::utils::init_sdk;
+use anyhow::Result;
 use clap::Args;
 use console::style;
 
@@ -164,7 +164,7 @@ pub async fn handle_approve_interactive(config: &Config) -> Result<()> {
         if !approvals.approvers.is_empty() {
             println!("Approvers:");
             for approver in &approvals.approvers {
-                println!("  • {}", approver);
+                println!("  • {approver}");
             }
         }
     }

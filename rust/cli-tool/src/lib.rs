@@ -1,11 +1,12 @@
-use clap::ValueEnum;
 
+pub mod batch;
 pub mod commands;
 pub mod config;
 pub mod file_processor;
 pub mod sdk;
 pub mod utils;
 
+pub use batch::*;
 pub use config::Config;
 
 #[cfg(test)]

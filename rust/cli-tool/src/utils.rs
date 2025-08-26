@@ -1,7 +1,6 @@
 use crate::config::Config;
 use crate::sdk::CapsuleSDK;
 use anyhow::{Context, Result};
-use base64::Engine;
 use std::fs;
 use std::path::Path;
 
@@ -9,7 +8,7 @@ use std::path::Path;
 pub fn format_output(data: &serde_json::Value, format: &str) -> Result<String> {
     match format {
         "json" => Ok(serde_json::to_string_pretty(data)?),
-        "human" => Ok(format!("{:#}", data)),
+        "human" => Ok(format!("{data:#}")),
         _ => Ok(data.to_string()),
     }
 }
@@ -68,11 +67,11 @@ pub fn format_file_size(size: u64) -> String {
 
 /// Format timestamp in human readable format
 pub fn format_timestamp(timestamp: u64) -> String {
-    use chrono::{DateTime, TimeZone, Utc};
+    use chrono::{TimeZone, Utc};
     let dt = Utc
         .timestamp_millis_opt(timestamp as i64)
         .single()
-        .unwrap_or_else(|| Utc::now());
+        .unwrap_or_else(Utc::now);
     dt.format("%Y-%m-%d %H:%M:%S UTC").to_string()
 }
 
@@ -107,7 +106,7 @@ pub fn parse_duration(duration_str: &str) -> Result<u64> {
 
     let number: u64 = number_part
         .parse()
-        .with_context(|| format!("Invalid number in duration: {}", number_part))?;
+        .with_context(|| format!("Invalid number in duration: {number_part}"))?;
 
     let multiplier = match unit_part {
         "s" | "sec" | "second" | "seconds" => 1,

@@ -1,6 +1,6 @@
 ﻿use anyhow::{Context, Result};
 use base64::Engine;
-use encryptor_wasi::{decrypt_content, encrypt_content};
+use encryptor_wasi::encrypt_content;
 use indicatif::{ProgressBar, ProgressStyle};
 use ipfs_api_backend_hyper::{IpfsClient, TryFromUri};
 use log::{debug, info, warn};
@@ -96,6 +96,12 @@ pub struct CapsuleQuery {
     pub offset: u32,
 }
 
+impl Default for CapsuleQuery {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CapsuleQuery {
     pub fn new() -> Self {
         Self {
@@ -187,7 +193,7 @@ impl CapsuleSDK {
     }
 
     pub async fn get_capsules_by_owner(&self, owner: &str) -> Result<Vec<Capsule>> {
-        info!("Fetching capsules for owner: {}", owner);
+        info!("Fetching capsules for owner: {owner}");
 
         // Mock implementation - in real version would query Sui blockchain
         let mock_capsules = vec![
@@ -238,7 +244,7 @@ impl CapsuleSDK {
         encryption_key: &str,
         payment: Option<u64>,
     ) -> Result<UnlockResult> {
-        info!("Unlocking capsule: {}", capsule_id);
+        info!("Unlocking capsule: {capsule_id}");
 
         let pb = ProgressBar::new(4);
         pb.set_style(
@@ -286,7 +292,7 @@ impl CapsuleSDK {
     }
 
     pub async fn approve_capsule(&self, capsule_id: &str) -> Result<ApprovalResult> {
-        info!("Approving capsule: {}", capsule_id);
+        info!("Approving capsule: {capsule_id}");
 
         // Mock blockchain transaction
         tokio::time::sleep(tokio::time::Duration::from_millis(1000)).await;
@@ -341,7 +347,7 @@ impl CapsuleSDK {
             capsule_id,
             transaction_digest: format!("0x{:x}", rand::random::<u64>()),
             cid,
-            encryption_key: base64::engine::general_purpose::STANDARD.encode(&encryption_key),
+            encryption_key: base64::engine::general_purpose::STANDARD.encode(encryption_key),
         })
     }
 
@@ -386,7 +392,7 @@ impl CapsuleSDK {
             capsule_id,
             transaction_digest: format!("0x{:x}", rand::random::<u64>()),
             cid,
-            encryption_key: base64::engine::general_purpose::STANDARD.encode(&encryption_key),
+            encryption_key: base64::engine::general_purpose::STANDARD.encode(encryption_key),
         })
     }
 
@@ -430,7 +436,7 @@ impl CapsuleSDK {
             capsule_id,
             transaction_digest: format!("0x{:x}", rand::random::<u64>()),
             cid,
-            encryption_key: base64::engine::general_purpose::STANDARD.encode(&encryption_key),
+            encryption_key: base64::engine::general_purpose::STANDARD.encode(encryption_key),
         })
     }
 
@@ -634,7 +640,7 @@ impl CapsuleSDK {
 
         // Generate mock CID
         let cid = format!("Qm{:x}", rand::random::<u64>());
-        debug!("Generated CID: {}", cid);
+        debug!("Generated CID: {cid}");
 
         Ok(cid)
     }
@@ -645,16 +651,13 @@ impl CapsuleSDK {
         value: u64,
         capsule_type: &str,
     ) -> Result<String> {
-        debug!(
-            "Creating {} capsule on blockchain with value: {}",
-            capsule_type, value
-        );
+        debug!("Creating {capsule_type} capsule on blockchain with value: {value}");
 
         // Mock blockchain transaction
         tokio::time::sleep(tokio::time::Duration::from_millis(1500)).await;
 
         let capsule_id = format!("0x{:x}", rand::random::<u64>());
-        debug!("Generated capsule ID: {}", capsule_id);
+        debug!("Generated capsule ID: {capsule_id}");
 
         Ok(capsule_id)
     }
@@ -675,7 +678,7 @@ impl BatchOperation {
         price: Option<u64>,
     ) -> Result<Vec<CreateCapsuleResult>> {
         let total_files = self.files.len();
-        info!("Processing batch of {} files", total_files);
+        info!("Processing batch of {total_files} files");
 
         let pb = ProgressBar::new(total_files as u64);
         pb.set_style(ProgressStyle::default_bar()
@@ -684,7 +687,7 @@ impl BatchOperation {
 
         let mut results = Vec::new();
 
-        for (_i, file_path) in self.files.iter().enumerate() {
+        for file_path in self.files.iter() {
             pb.set_message(format!("{}", file_path.display()));
 
             match fs::read(file_path).await {

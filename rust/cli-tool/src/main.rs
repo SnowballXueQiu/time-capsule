@@ -4,9 +4,10 @@ use std::path::PathBuf;
 
 use capsule_cli::{
     commands::{
-        handle_approve, handle_approve_interactive, handle_create, handle_list,
-        handle_list_interactive, handle_list_pending_approvals, handle_unlock,
-        handle_unlock_interactive, ApproveArgs, CapsuleType, CreateArgs, ListArgs, UnlockArgs,
+        handle_approve, handle_approve_interactive, handle_batch, handle_batch_interactive,
+        handle_create, handle_list, handle_list_interactive, handle_list_pending_approvals,
+        handle_unlock, handle_unlock_interactive, ApproveArgs, BatchArgs, CapsuleType, CreateArgs,
+        ListArgs, UnlockArgs,
     },
     config::{handle_config_command, Config},
 };
@@ -77,6 +78,9 @@ enum Commands {
     /// Approve a multisig capsule
     Approve(ApproveArgs),
 
+    /// Batch operations on multiple files
+    Batch(BatchArgs),
+
     /// Interactive commands
     #[command(subcommand)]
     Interactive(InteractiveCommands),
@@ -103,6 +107,8 @@ enum InteractiveCommands {
     Unlock,
     /// Interactive capsule approval
     Approve,
+    /// Interactive batch operations
+    Batch,
     /// List pending approvals
     PendingApprovals,
 }
@@ -140,6 +146,7 @@ async fn main() -> anyhow::Result<()> {
         Commands::List(args) => handle_list(args, &config).await,
         Commands::Unlock(args) => handle_unlock(args, &config).await,
         Commands::Approve(args) => handle_approve(args, &config).await,
+        Commands::Batch(args) => handle_batch(args, &config).await,
 
         Commands::Interactive(interactive_cmd) => {
             match interactive_cmd {
@@ -150,6 +157,7 @@ async fn main() -> anyhow::Result<()> {
                 InteractiveCommands::List => handle_list_interactive(&config).await,
                 InteractiveCommands::Unlock => handle_unlock_interactive(&config).await,
                 InteractiveCommands::Approve => handle_approve_interactive(&config).await,
+                InteractiveCommands::Batch => handle_batch_interactive(&config).await,
                 InteractiveCommands::PendingApprovals => {
                     handle_list_pending_approvals(&config).await
                 }

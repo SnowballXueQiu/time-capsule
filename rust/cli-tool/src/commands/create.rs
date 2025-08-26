@@ -125,7 +125,7 @@ pub async fn handle_create(args: CreateArgs, config: &Config) -> Result<()> {
             }
             CapsuleType::Payment => {
                 let price = args.price.unwrap();
-                println!("Price: {} MIST", price);
+                println!("Price: {price} MIST");
                 sdk.create_payment_capsule(content, price, Some(&pb))
                     .await?
             }
@@ -140,9 +140,9 @@ pub async fn handle_create(args: CreateArgs, config: &Config) -> Result<()> {
             style(files.len()).bold()
         );
 
-        let (multi_progress, main_pb) = file_processor.create_batch_progress(files.len());
+        let (_multi_progress, main_pb) = file_processor.create_batch_progress(files.len());
 
-        let batch_result = BatchProcessor::process_files(
+        let batch_result = BatchProcessor::process_files_sequential(
             files,
             |file_info| {
                 let sdk = &sdk;
@@ -178,6 +178,23 @@ pub async fn handle_create(args: CreateArgs, config: &Config) -> Result<()> {
         .await;
 
         BatchProcessor::display_results(&batch_result);
+
+        // Enhanced error reporting
+        if !batch_result.failed.is_empty() {
+            use crate::file_processor::ErrorReporter;
+
+            println!("\n{}", style("Error Summary").bold().red());
+            println!("{}", "=".repeat(50));
+            println!("{}", ErrorReporter::generate_error_summary(&batch_result));
+
+            let suggestions = ErrorReporter::suggest_recovery_actions(&batch_result.failed);
+            if !suggestions.is_empty() {
+                println!("\n{}", style("Recovery Suggestions:").bold().yellow());
+                for suggestion in suggestions {
+                    println!("  • {suggestion}");
+                }
+            }
+        }
     }
 
     Ok(())
@@ -213,7 +230,7 @@ fn validate_create_args(args: &CreateArgs) -> Result<()> {
             // Validate approver addresses
             for approver in &args.approvers {
                 validate_sui_address(approver)
-                    .with_context(|| format!("Invalid approver address: {}", approver))?;
+                    .with_context(|| format!("Invalid approver address: {approver}"))?;
             }
         }
         CapsuleType::Payment => {

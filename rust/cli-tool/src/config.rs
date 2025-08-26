@@ -210,7 +210,7 @@ pub async fn handle_config_command(config: &Config, show: bool, init: bool) -> R
         println!("IPFS URL: {}", config.ipfs_url);
 
         if let Some(package_id) = &config.package_id {
-            println!("Package ID: {}", package_id);
+            println!("Package ID: {package_id}");
         } else {
             println!("Package ID: Not set");
         }
