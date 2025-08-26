@@ -149,9 +149,9 @@ export function ApprovalModal({
                     Current Approvers
                   </h3>
                   <div className="space-y-1 max-h-32 overflow-y-auto">
-                    {capsule.unlockCondition.approvals.map((address, index) => (
+                    {capsule.unlockCondition.approvals.map((address) => (
                       <div
-                        key={index}
+                        key={address}
                         className="flex items-center space-x-2 text-sm"
                       >
                         <span className="text-green-500">✅</span>

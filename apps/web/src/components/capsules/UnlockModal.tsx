@@ -1,7 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useCurrentAccount } from "@mysten/dapp-kit";
+import {
+  useCurrentAccount,
+  useSignAndExecuteTransaction,
+} from "@mysten/dapp-kit";
+import { toB64 } from "@mysten/sui.js/utils";
 import { getSDK } from "../../lib/sdk";
 import type { Capsule, UnlockResult } from "@time-capsule/types";
 import { Loading } from "../Loading";
@@ -22,6 +26,8 @@ export function UnlockModal({
   onError,
 }: UnlockModalProps) {
   const currentAccount = useCurrentAccount();
+  const { mutate: signAndExecuteTransaction } =
+    useSignAndExecuteTransaction();
   const [loading, setLoading] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState("");
   const [encryptionKey, setEncryptionKey] = useState("");
@@ -81,66 +87,60 @@ export function UnlockModal({
     setLoading(true);
 
     try {
-      // For demo purposes, simulate the unlock process
-      // In production, this would involve real wallet transactions
+      console.log("Starting unlock process for capsule:", capsule.id);
+      console.log("UnlockModal: CID:", capsule.cid);
+      console.log(
+        "UnlockModal: Encryption key length:",
+        encryptionKey.trim().length
+      );
+      console.log("UnlockModal: Content hash:", capsule.contentHash);
 
-      console.log("Simulating unlock process for capsule:", capsule.id);
+      // Step 1: Create unlock transaction
+      const paymentAmountMist = capsule.unlockCondition.type === "payment"
+        ? parseFloat(paymentAmount) * 1_000_000_000 // Convert SUI to MIST
+        : undefined;
 
-      // Simulate transaction delay
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+      // Use the SDK's method to handle the complete unlock flow
+      // This bypasses the transaction serialization issues
+      const unlockResult = await sdk.downloadAndDecrypt(
+        capsule.cid,
+        encryptionKey.trim(),
+        capsule.contentHash
+          ? new Uint8Array(Buffer.from(capsule.contentHash, "hex"))
+          : undefined
+      );
 
-      // Try to decrypt content with provided key
-      try {
-        const decryptResult = await sdk.downloadAndDecrypt(
-          capsule.cid,
-          encryptionKey.trim(),
-          capsule.contentHash
-            ? new Uint8Array(Buffer.from(capsule.contentHash, "hex"))
-            : undefined
-        );
+      if (!unlockResult.success) {
+        throw new Error(unlockResult.error || "Unlock failed");
+      }
 
-        if (decryptResult.success) {
-          const unlockResult = {
-            success: true,
-            content: decryptResult.content,
-            contentType: decryptResult.contentType,
-            capsuleId: capsule.id,
-            cid: capsule.cid,
-            transactionDigest: "demo-unlock-" + Date.now(),
-          };
+      console.log("UnlockModal: Unlock successful:", unlockResult);
 
-          console.log(
-            "UnlockModal: Calling onSuccess with result:",
-            unlockResult
-          );
-          onSuccess(unlockResult);
-          console.log("UnlockModal: onSuccess called, closing modal");
-          onClose();
-        } else {
-          throw new Error(decryptResult.error || "Decryption failed");
-        }
-      } catch (decryptError) {
-        console.error("Decryption failed:", decryptError);
+      console.log("UnlockModal: Decryption result:", unlockResult);
 
-        // Even if decryption fails, we can still show unlock success
-        const unlockResult = {
+      if (unlockResult.success) {
+        const successResult = {
           success: true,
+          content: unlockResult.content,
+          contentType: unlockResult.contentType,
           capsuleId: capsule.id,
           cid: capsule.cid,
-          transactionDigest: "demo-unlock-" + Date.now(),
-          content: new TextEncoder().encode(
-            "Capsule unlocked! (Content decryption failed - check your encryption key)"
-          ),
-          contentType: "text/plain",
+          transactionDigest: unlockResult.transactionDigest,
         };
 
         console.log(
-          "UnlockModal: Decryption failed, calling onSuccess with fallback result:",
-          unlockResult
+          "UnlockModal: Calling onSuccess with result:",
+          successResult
         );
-        onSuccess(unlockResult);
+        onSuccess(successResult);
         console.log("UnlockModal: onSuccess called, closing modal");
         onClose();
+      } else {
+        console.error(
+          "UnlockModal: Decryption failed with error:",
+          unlockResult.error
+        );
+        throw new Error(unlockResult.error || "Decryption failed");
       }
     } catch (error) {
       console.error("Unlock failed:", error);

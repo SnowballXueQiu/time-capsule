@@ -48,11 +48,13 @@ export function CountdownTimer({
   };
 
   const timeUnits = [
-    formatTimeUnit(timeRemaining.days, "d"),
-    formatTimeUnit(timeRemaining.hours, "h"),
-    formatTimeUnit(timeRemaining.minutes, "m"),
-    formatTimeUnit(timeRemaining.seconds, "s"),
-  ].filter(Boolean);
+    { value: timeRemaining.days, unit: "d" },
+    { value: timeRemaining.hours, unit: "h" },
+    { value: timeRemaining.minutes, unit: "m" },
+    { value: timeRemaining.seconds, unit: "s" },
+  ]
+    .filter(({ value }) => value > 0)
+    .map(({ value, unit }) => `${value}${unit}`);
 
   // Show only the two most significant units
   const displayUnits = timeUnits.slice(0, 2);

@@ -157,8 +157,8 @@ export function CapsuleDetail({
               <div>
                 <h4 className="font-medium text-gray-900 mb-2">Approvers</h4>
                 <div className="space-y-1">
-                  {approvals.map((address, index) => (
-                    <div key={index} className="text-sm text-gray-600">
+                  {approvals.map((address) => (
+                    <div key={address} className="text-sm text-gray-600">
                       ✅ {formatAddress(address)}
                     </div>
                   ))}
