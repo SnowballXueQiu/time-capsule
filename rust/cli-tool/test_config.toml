@@ -1,0 +1,9 @@
+network = "devnet"
+ipfs_url = "https://ipfs.infura.io:5001"
+default_output_format = "human"
+verbose = false
+
+# This is a test configuration file
+# In a real setup, you would set:
+# private_key_path = "/path/to/your/sui.keystore"
+# package_id = "0x1234567890abcdef..."

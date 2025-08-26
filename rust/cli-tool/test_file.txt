@@ -1,0 +1,5 @@
+This is a test file for the time capsule CLI.
+It contains some sample content that will be encrypted and stored.
+
+Time capsule created at: 2024-01-15
+Content: Secret message for the future!
