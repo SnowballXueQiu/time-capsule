@@ -16,5 +16,5 @@ thiserror = { workspace = true }
 wasi = { workspace = true }
 hex = "0.4"
 
-[target.'cfg(target_arch = "wasm32")'.dependencies]
-getrandom = { version = "0.3.3", features = ["js"] }
+[target.'cfg(all(target_arch = "wasm32", not(feature = "disable_getrandom")))'.dependencies]
+getrandom = { version = "0.2", features = ["js"] }
