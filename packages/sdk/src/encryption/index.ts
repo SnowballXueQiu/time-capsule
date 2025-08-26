@@ -4,11 +4,11 @@ export {
   type EncryptedStorageConfig,
   type StorageEncryptionResult,
   type StorageDecryptionResult,
-} from "./encrypted-storage.js";
+} from "./encrypted-storage";
 
 export {
   WASMEncryption,
   WASMEncryptionError,
   type WASMEncryptionResult,
   type WASMDecryptionResult,
-} from "./wasm-loader.js";
+} from "./wasm-loader";

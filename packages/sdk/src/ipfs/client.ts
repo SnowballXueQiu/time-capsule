@@ -1,7 +1,5 @@
-import { create, IPFSHTTPClient } from "ipfs-http-client";
 import { CID } from "multiformats/cid";
 import * as multihash from "multiformats/hashes/sha2";
-import { base58btc } from "multiformats/bases/base58";
 
 export interface IPFSConfig {
   url?: string;
@@ -33,7 +31,6 @@ export class IPFSClientError extends Error {
 }
 
 export class IPFSClient {
-  private client: IPFSHTTPClient;
   private config: Required<IPFSConfig>;
 
   constructor(config: IPFSConfig = {}) {
@@ -43,11 +40,6 @@ export class IPFSClient {
       retries: config.retries || 3,
       retryDelay: config.retryDelay || 1000,
     };
-
-    this.client = create({
-      url: this.config.url,
-      timeout: this.config.timeout,
-    });
   }
 
   /**
@@ -56,18 +48,39 @@ export class IPFSClient {
   async uploadContent(content: Uint8Array): Promise<IPFSUploadResult> {
     return this.withRetry(async () => {
       try {
-        // Add content to IPFS
-        const result = await this.client.add(content, {
-          pin: true,
-          cidVersion: 1,
+        // Create form data for IPFS API
+        const formData = new FormData();
+        // Create a proper ArrayBuffer from Uint8Array
+        const buffer = new ArrayBuffer(content.length);
+        const view = new Uint8Array(buffer);
+        view.set(content);
+        const blob = new Blob([buffer], {
+          type: "application/octet-stream",
         });
+        formData.append("file", blob);
+
+        // Upload to IPFS using HTTP API
+        const response = await fetch(
+          `${this.config.url}/api/v0/add?pin=true&cid-version=1`,
+          {
+            method: "POST",
+            body: formData,
+            signal: AbortSignal.timeout(this.config.timeout),
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const result = await response.json();
 
         // Calculate content hash for verification
         const hash = await this.calculateContentHash(content);
 
         return {
-          cid: result.cid.toString(),
-          size: result.size,
+          cid: result.Hash,
+          size: parseInt(result.Size) || content.length,
           hash,
         };
       } catch (error) {
@@ -90,23 +103,23 @@ export class IPFSClient {
     return this.withRetry(async () => {
       try {
         // Validate CID format
-        const parsedCid = CID.parse(cid);
+        CID.parse(cid);
 
-        // Download content from IPFS
-        const chunks: Uint8Array[] = [];
-        let totalSize = 0;
+        // Download content from IPFS using HTTP API
+        const response = await fetch(
+          `${this.config.url}/api/v0/cat?arg=${cid}`,
+          {
+            method: "POST",
+            signal: AbortSignal.timeout(this.config.timeout),
+          }
+        );
 
-        for await (const chunk of this.client.cat(parsedCid)) {
-          chunks.push(chunk);
-          totalSize += chunk.length;
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
 
-        const content = new Uint8Array(totalSize);
-        let offset = 0;
-        for (const chunk of chunks) {
-          content.set(chunk, offset);
-          offset += chunk.length;
-        }
+        const arrayBuffer = await response.arrayBuffer();
+        const content = new Uint8Array(arrayBuffer);
 
         // Verify content hash if provided
         if (expectedHash) {
@@ -121,7 +134,7 @@ export class IPFSClient {
 
         return {
           content,
-          size: totalSize,
+          size: content.length,
         };
       } catch (error) {
         if (error instanceof IPFSClientError) {
@@ -141,9 +154,15 @@ export class IPFSClient {
    */
   async contentExists(cid: string): Promise<boolean> {
     try {
-      const parsedCid = CID.parse(cid);
-      const stat = await this.client.object.stat(parsedCid);
-      return stat.NumLinks >= 0; // If we can get stats, content exists
+      CID.parse(cid);
+      const response = await fetch(
+        `${this.config.url}/api/v0/object/stat?arg=${cid}`,
+        {
+          method: "POST",
+          signal: AbortSignal.timeout(this.config.timeout),
+        }
+      );
+      return response.ok;
     } catch {
       return false;
     }
@@ -154,10 +173,22 @@ export class IPFSClient {
    */
   async getContentStats(cid: string): Promise<{ size: number; type: string }> {
     try {
-      const parsedCid = CID.parse(cid);
-      const stat = await this.client.object.stat(parsedCid);
+      CID.parse(cid);
+      const response = await fetch(
+        `${this.config.url}/api/v0/object/stat?arg=${cid}`,
+        {
+          method: "POST",
+          signal: AbortSignal.timeout(this.config.timeout),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const stat = await response.json();
       return {
-        size: stat.CumulativeSize,
+        size: stat.CumulativeSize || 0,
         type: "application/octet-stream", // Default type for encrypted content
       };
     } catch (error) {
@@ -218,24 +249,9 @@ export class IPFSClient {
   }
 
   /**
-   * Get the underlying IPFS client for advanced operations
-   */
-  getClient(): IPFSHTTPClient {
-    return this.client;
-  }
-
-  /**
    * Update client configuration
    */
   updateConfig(config: Partial<IPFSConfig>): void {
     this.config = { ...this.config, ...config };
-
-    // Recreate client if URL changed
-    if (config.url) {
-      this.client = create({
-        url: this.config.url,
-        timeout: this.config.timeout,
-      });
-    }
   }
 }

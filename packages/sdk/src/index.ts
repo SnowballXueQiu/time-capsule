@@ -10,8 +10,8 @@ import type {
   UnlockCondition,
 } from "@time-capsule/types";
 import { CapsuleError, CapsuleSDKError } from "@time-capsule/types";
-import { EncryptedStorage } from "./encryption/index.js";
-import { IPFSClient } from "./ipfs/index.js";
+import { EncryptedStorage } from "./encryption/index";
+import { IPFSClient } from "./ipfs/index";
 
 export interface CapsuleSDKConfig {
   network?: "mainnet" | "testnet" | "devnet" | "localnet";
@@ -1013,5 +1013,5 @@ export class CapsuleSDK {
 }
 
 export * from "@time-capsule/types";
-export * from "./ipfs/index.js";
-export * from "./encryption/index.js";
+export * from "./ipfs/index";
+export * from "./encryption/index";

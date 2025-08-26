@@ -4,6 +4,6 @@ export {
   type IPFSConfig,
   type IPFSUploadResult,
   type IPFSDownloadResult,
-} from "./client.js";
+} from "./client";
 
 export { StorageManager } from "./storage";

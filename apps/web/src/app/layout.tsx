@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import "@mysten/dapp-kit/dist/index.css";
 
 export const metadata: Metadata = {
   title: "Decentralized Time Capsule",
@@ -7,7 +8,8 @@ export const metadata: Metadata = {
     "Store encrypted content with blockchain-based unlock conditions",
 };
 
-import { QueryProvider } from "../providers/QueryProvider";
+import { SuiProvider } from "../providers/SuiProvider";
+import { ErrorBoundary } from "../components/ErrorBoundary";
 
 export default function RootLayout({
   children,
@@ -17,9 +19,11 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <QueryProvider>
-          <div id="root">{children}</div>
-        </QueryProvider>
+        <ErrorBoundary>
+          <SuiProvider>
+            <div id="root">{children}</div>
+          </SuiProvider>
+        </ErrorBoundary>
       </body>
     </html>
   );
