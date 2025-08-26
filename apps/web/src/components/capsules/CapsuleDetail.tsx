@@ -14,6 +14,7 @@ interface CapsuleDetailProps {
   onBack?: () => void;
   onUnlock?: (capsule: Capsule) => void;
   onApprove?: (capsule: Capsule) => void;
+  approving?: boolean;
 }
 
 export function CapsuleDetail({
@@ -21,6 +22,7 @@ export function CapsuleDetail({
   onBack,
   onUnlock,
   onApprove,
+  approving = false,
 }: CapsuleDetailProps) {
   const currentAccount = useCurrentAccount();
   const [currentTime, setCurrentTime] = useState(Date.now());
@@ -212,11 +214,21 @@ export function CapsuleDetail({
   };
 
   const canUserUnlock = () => {
-    return (
+    const result =
       !capsule.unlocked &&
       status?.canUnlock &&
-      currentAccount?.address === capsule.owner
-    );
+      currentAccount?.address === capsule.owner;
+
+    console.log("canUserUnlock check:", {
+      unlocked: capsule.unlocked,
+      canUnlock: status?.canUnlock,
+      currentAddress: currentAccount?.address,
+      owner: capsule.owner,
+      addressMatch: currentAccount?.address === capsule.owner,
+      result,
+    });
+
+    return result;
   };
 
   if (loading) {
@@ -300,9 +312,11 @@ export function CapsuleDetail({
           <h3 className="text-lg font-semibold text-gray-900 mb-2">
             Current Status
           </h3>
-          <p className="text-gray-600">
-            {status?.statusMessage || "Loading status..."}
-          </p>
+          <div className="space-y-2">
+            <p className="text-gray-600">
+              {status?.statusMessage || "Loading status..."}
+            </p>
+          </div>
         </div>
 
         {/* Actions */}
@@ -311,33 +325,64 @@ export function CapsuleDetail({
             {canUserApprove() && (
               <button
                 onClick={() => onApprove?.(capsule)}
-                className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors font-medium"
+                disabled={approving}
+                className="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-blue-300 disabled:cursor-not-allowed transition-colors font-medium flex items-center space-x-2"
               >
-                Approve Capsule
+                {approving ? (
+                  <>
+                    <Loading />
+                    <span>Approving...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>👥</span>
+                    <span>Approve Capsule</span>
+                  </>
+                )}
               </button>
             )}
 
             {canUserUnlock() && (
               <button
                 onClick={() => onUnlock?.(capsule)}
-                className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors font-medium"
+                className="px-6 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors font-medium flex items-center space-x-2 shadow-lg"
               >
-                Unlock Capsule
+                <span>🔓</span>
+                <span>Unlock Capsule</span>
               </button>
             )}
 
             {capsule.unlocked && (
-              <div className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg">
-                Capsule has been unlocked
+              <div className="px-6 py-3 bg-green-100 text-green-800 rounded-lg flex items-center space-x-2 border border-green-200">
+                <span>✅</span>
+                <span className="font-medium">Capsule Unlocked</span>
               </div>
             )}
 
             {!canUserUnlock() && !canUserApprove() && !capsule.unlocked && (
-              <div className="px-4 py-2 bg-gray-100 text-gray-600 rounded-lg">
-                {status?.statusMessage || "Conditions not met"}
+              <div className="px-6 py-3 bg-gray-100 text-gray-600 rounded-lg flex items-center space-x-2">
+                <span>⏳</span>
+                <span>{status?.statusMessage || "Conditions not met"}</span>
               </div>
             )}
           </div>
+
+          {/* Additional info for owners */}
+          {currentAccount?.address === capsule.owner && (
+            <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+              <div className="flex items-center space-x-2 text-blue-800">
+                <span>👤</span>
+                <span className="font-medium">
+                  You are the owner of this capsule
+                </span>
+              </div>
+              {!capsule.unlocked && status?.canUnlock && (
+                <p className="text-blue-600 text-sm mt-1">
+                  Click "Unlock Capsule" to retrieve your content
+                </p>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>

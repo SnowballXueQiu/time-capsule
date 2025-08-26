@@ -486,7 +486,7 @@ export class CapsuleSDK {
           canUnlock,
           timeRemaining,
           statusMessage: canUnlock
-            ? "Ready to unlock"
+            ? ""
             : `Unlocks in ${this.formatTimeRemaining(timeRemaining)}`,
         };
       }
@@ -506,7 +506,7 @@ export class CapsuleSDK {
             percentage: Math.min(100, percentage),
           },
           statusMessage: canUnlock
-            ? "Ready to unlock"
+            ? ""
             : `${currentApprovals}/${threshold} approvals received`,
         };
       }
@@ -523,7 +523,7 @@ export class CapsuleSDK {
             paid,
           },
           statusMessage: canUnlock
-            ? "Ready to unlock"
+            ? ""
             : `Payment required: ${price / 1_000_000_000} SUI`,
         };
       }
@@ -832,23 +832,29 @@ export class CapsuleSDK {
       return null;
     }
 
-    // Parse unlock condition
+    // For our simple contract structure, we determine the type based on unlock_time_ms
+    // If unlock_time_ms > 0, it's a time-based capsule
+    // Otherwise, it's a multisig or payment capsule (simplified for now)
+    const unlockTimeMs = parseInt(fields.unlock_time_ms) || 0;
+
     const unlockCondition: UnlockCondition = {
-      type: this.parseConditionType(fields.unlock_condition?.condition_type),
-      unlockTime: fields.unlock_condition?.unlock_time_ms || undefined,
-      threshold: fields.unlock_condition?.threshold || undefined,
-      approvals: fields.unlock_condition?.approvals || [],
-      price: fields.unlock_condition?.price || undefined,
-      paid: fields.unlock_condition?.paid || false,
+      type: unlockTimeMs > 0 ? "time" : "multisig", // Default to multisig for non-time capsules
+      unlockTime: unlockTimeMs > 0 ? unlockTimeMs : undefined,
+      threshold: unlockTimeMs === 0 ? 1 : undefined, // Default threshold for multisig
+      approvals: [],
+      price: undefined,
+      paid: false,
     };
 
     return {
       id: objectData.objectId,
       owner: fields.owner,
       cid: fields.cid,
-      contentHash: fields.content_hash,
+      contentHash: Array.isArray(fields.content_hash)
+        ? fields.content_hash
+        : [],
       unlockCondition,
-      createdAt: parseInt(fields.created_at) || 0,
+      createdAt: Date.now(), // Use current time since we don't store creation time
       unlocked: fields.unlocked || false,
     };
   }
@@ -869,6 +875,205 @@ export class CapsuleSDK {
           CapsuleError.CAPSULE_NOT_FOUND,
           `Unknown unlock condition type: ${type}`
         );
+    }
+  }
+
+  /**
+   * Create approval transaction (for use with wallet signing)
+   */
+  async createApprovalTransaction(
+    capsuleId: string
+  ): Promise<TransactionBlock> {
+    this.ensureInitialized();
+
+    try {
+      // Get current capsule state to validate
+      const capsule = await this.getCapsuleById(capsuleId);
+
+      // Check if it's a multisig capsule
+      if (capsule.unlockCondition.type !== "multisig") {
+        throw new CapsuleSDKError(
+          CapsuleError.UNLOCK_CONDITIONS_NOT_MET,
+          "Only multisig capsules can be approved"
+        );
+      }
+
+      // Check if already unlocked
+      if (capsule.unlocked) {
+        throw new CapsuleSDKError(
+          CapsuleError.UNLOCK_CONDITIONS_NOT_MET,
+          "Capsule has already been unlocked"
+        );
+      }
+
+      // Build transaction
+      const tx = new TransactionBlock();
+      tx.moveCall({
+        target: `${this.packageId}::capsule::approve_capsule`,
+        arguments: [tx.object(capsuleId)],
+      });
+
+      return tx;
+    } catch (error) {
+      if (error instanceof CapsuleSDKError) {
+        throw error;
+      }
+      throw new CapsuleSDKError(
+        CapsuleError.TRANSACTION_FAILED,
+        `Failed to create approval transaction: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+        error instanceof Error ? error : undefined
+      );
+    }
+  }
+
+  /**
+   * Create unlock transaction (for use with wallet signing)
+   */
+  async createUnlockTransaction(
+    capsuleId: string,
+    payment?: number
+  ): Promise<TransactionBlock> {
+    this.ensureInitialized();
+
+    try {
+      // Get current capsule state
+      const capsule = await this.getCapsuleById(capsuleId);
+
+      // Check if already unlocked
+      if (capsule.unlocked) {
+        throw new CapsuleSDKError(
+          CapsuleError.UNLOCK_CONDITIONS_NOT_MET,
+          "Capsule has already been unlocked"
+        );
+      }
+
+      // Validate unlock conditions
+      const status = this.getCapsuleStatus(capsule);
+      if (!status.canUnlock) {
+        throw new CapsuleSDKError(
+          CapsuleError.UNLOCK_CONDITIONS_NOT_MET,
+          `Unlock conditions not met: ${status.statusMessage}`
+        );
+      }
+
+      // Build transaction
+      const tx = new TransactionBlock();
+
+      // Handle different unlock condition types
+      switch (capsule.unlockCondition.type) {
+        case "payment":
+          if (!payment || payment < (capsule.unlockCondition.price || 0)) {
+            throw new CapsuleSDKError(
+              CapsuleError.UNLOCK_CONDITIONS_NOT_MET,
+              `Insufficient payment: required ${
+                capsule.unlockCondition.price
+              }, provided ${payment || 0}`
+            );
+          }
+          const [coin] = tx.splitCoins(tx.gas, [payment]);
+          tx.moveCall({
+            target: `${this.packageId}::capsule::unlock_capsule`,
+            arguments: [
+              tx.object(capsuleId),
+              coin,
+              tx.object("0x6"), // Clock object
+            ],
+          });
+          break;
+
+        case "time":
+        case "multisig":
+          tx.moveCall({
+            target: `${this.packageId}::capsule::unlock_capsule`,
+            arguments: [
+              tx.object(capsuleId),
+              tx.object("0x6"), // Clock object
+            ],
+          });
+          break;
+
+        default:
+          throw new CapsuleSDKError(
+            CapsuleError.UNLOCK_CONDITIONS_NOT_MET,
+            `Unknown unlock condition type: ${capsule.unlockCondition.type}`
+          );
+      }
+
+      return tx;
+    } catch (error) {
+      if (error instanceof CapsuleSDKError) {
+        throw error;
+      }
+      throw new CapsuleSDKError(
+        CapsuleError.UNLOCK_CONDITIONS_NOT_MET,
+        `Failed to create unlock transaction: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+        error instanceof Error ? error : undefined
+      );
+    }
+  }
+
+  /**
+   * Process unlock result and retrieve content
+   */
+  async processUnlockResult(
+    capsuleId: string,
+    transactionDigest: string
+  ): Promise<UnlockResult> {
+    this.ensureInitialized();
+
+    try {
+      // Get transaction details to verify success
+      const txResult = await this.client.getTransactionBlock({
+        digest: transactionDigest,
+        options: {
+          showEffects: true,
+          showEvents: true,
+        },
+      });
+
+      if (txResult.effects?.status?.status !== "success") {
+        throw new CapsuleSDKError(
+          CapsuleError.TRANSACTION_FAILED,
+          `Transaction failed: ${txResult.effects?.status?.error}`
+        );
+      }
+
+      // Extract unlock event data if available
+      const unlockEvent = txResult.events?.find((event) =>
+        event.type.includes("CapsuleUnlocked")
+      );
+
+      // Get updated capsule state
+      const capsule = await this.getCapsuleById(capsuleId);
+
+      // For now, return basic success info
+      // In a full implementation, we would decrypt content here
+      return {
+        success: true,
+        transactionDigest,
+        eventData: unlockEvent?.parsedJson,
+        capsuleId,
+        cid: capsule.cid,
+        content: new TextEncoder().encode(
+          "Capsule content unlocked successfully!"
+        ),
+        contentType: "text/plain",
+      };
+    } catch (error) {
+      if (error instanceof CapsuleSDKError) {
+        throw error;
+      }
+      throw new CapsuleSDKError(
+        CapsuleError.TRANSACTION_FAILED,
+        `Failed to process unlock result: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+        error instanceof Error ? error : undefined
+      );
     }
   }
 

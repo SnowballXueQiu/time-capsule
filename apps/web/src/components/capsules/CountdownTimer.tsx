@@ -39,7 +39,7 @@ export function CountdownTimer({
   }, [targetTime, currentTime]);
 
   if (targetTime <= currentTime) {
-    return <div className="text-green-600 font-medium">✅ Ready to unlock</div>;
+    return <div className="text-green-600 font-medium"></div>;
   }
 
   const formatTimeUnit = (value: number, unit: string) => {

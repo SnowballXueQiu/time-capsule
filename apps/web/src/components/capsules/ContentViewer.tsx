@@ -16,6 +16,8 @@ export function ContentViewer({
   onClose,
   onDownload,
 }: ContentViewerProps) {
+  console.log("ContentViewer rendered with:", { unlockResult, isOpen });
+
   const [contentUrl, setContentUrl] = useState<string | null>(null);
   const [contentType, setContentType] = useState<string>(
     "application/octet-stream"
@@ -180,7 +182,10 @@ export function ContentViewer({
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
   };
 
-  if (!isOpen) return null;
+  if (!isOpen) {
+    console.log("ContentViewer: not open, returning null");
+    return null;
+  }
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">

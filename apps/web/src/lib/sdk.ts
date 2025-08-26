@@ -6,12 +6,21 @@ let sdkInstance: CapsuleSDK | null = null;
  * Get or create a singleton SDK instance configured for Pinata
  */
 export async function getSDK(): Promise<CapsuleSDK> {
+  // Force recreation to ensure fresh configuration after network change
+  sdkInstance = null;
   if (!sdkInstance) {
     sdkInstance = new CapsuleSDK({
-      network: "devnet", // or "testnet", "mainnet"
+      network:
+        (process.env.NEXT_PUBLIC_SUI_NETWORK as
+          | "devnet"
+          | "testnet"
+          | "mainnet") || "testnet",
+      packageId: process.env.NEXT_PUBLIC_PACKAGE_ID,
       usePinata: true,
-      // Pinata credentials will be automatically loaded from environment variables
-      // NEXT_PUBLIC_PINATA_API_KEY, NEXT_PUBLIC_PINATA_API_SECRET, NEXT_PUBLIC_PINATA_JWT
+      pinataApiKey: process.env.NEXT_PUBLIC_PINATA_API_KEY,
+      pinataApiSecret: process.env.NEXT_PUBLIC_PINATA_API_SECRET,
+      pinataJWT: process.env.NEXT_PUBLIC_PINATA_JWT,
+      pinataGateway: process.env.NEXT_PUBLIC_PINATA_GATEWAY,
     });
 
     // Initialize the SDK
@@ -26,8 +35,17 @@ export async function getSDK(): Promise<CapsuleSDK> {
  */
 export function createSDK(config?: any): CapsuleSDK {
   return new CapsuleSDK({
-    network: "devnet",
+    network:
+      (process.env.NEXT_PUBLIC_SUI_NETWORK as
+        | "devnet"
+        | "testnet"
+        | "mainnet") || "testnet",
+    packageId: process.env.NEXT_PUBLIC_PACKAGE_ID,
     usePinata: true,
+    pinataApiKey: process.env.NEXT_PUBLIC_PINATA_API_KEY,
+    pinataApiSecret: process.env.NEXT_PUBLIC_PINATA_API_SECRET,
+    pinataJWT: process.env.NEXT_PUBLIC_PINATA_JWT,
+    pinataGateway: process.env.NEXT_PUBLIC_PINATA_GATEWAY,
     ...config,
   });
 }

@@ -104,9 +104,7 @@ export function CapsuleCard({
             />
           );
         } else {
-          return (
-            <div className="text-green-600 font-medium">Ready to unlock</div>
-          );
+          return <div className="text-green-600 font-medium"></div>;
         }
 
       case "multisig":
