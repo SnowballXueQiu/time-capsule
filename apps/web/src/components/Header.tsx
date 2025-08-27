@@ -3,8 +3,8 @@
 import { WalletConnection } from "./WalletConnection";
 
 interface HeaderProps {
-  activeTab: "create" | "list" | "wallet";
-  onTabChange: (tab: "create" | "list" | "wallet") => void;
+  activeTab?: "create" | "list" | "wallet";
+  onTabChange?: (tab: "create" | "list" | "wallet") => void;
 }
 
 export function Header({ activeTab, onTabChange }: HeaderProps) {
@@ -27,22 +27,26 @@ export function Header({ activeTab, onTabChange }: HeaderProps) {
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-8">
-            <nav className="flex space-x-8">
-              <button
-                onClick={() => onTabChange("create")}
-                className={`tab-button ${
-                  activeTab === "create" ? "active" : ""
-                }`}
-              >
-                Create Capsule
-              </button>
-              <button
-                onClick={() => onTabChange("list")}
-                className={`tab-button ${activeTab === "list" ? "active" : ""}`}
-              >
-                My Capsules
-              </button>
-            </nav>
+            {onTabChange && (
+              <nav className="flex space-x-8">
+                <button
+                  onClick={() => onTabChange("create")}
+                  className={`tab-button ${
+                    activeTab === "create" ? "active" : ""
+                  }`}
+                >
+                  Create Capsule
+                </button>
+                <button
+                  onClick={() => onTabChange("list")}
+                  className={`tab-button ${
+                    activeTab === "list" ? "active" : ""
+                  }`}
+                >
+                  My Capsules
+                </button>
+              </nav>
+            )}
 
             {/* Wallet Connection */}
             <WalletConnection />
