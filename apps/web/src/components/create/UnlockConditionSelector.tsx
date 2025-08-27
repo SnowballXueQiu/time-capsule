@@ -27,7 +27,7 @@ export function UnlockConditionSelector({
     };
   };
 
-  const defaultDateTime = getDefaultDateTime();
+  const [defaultDateTime] = useState(() => getDefaultDateTime());
   const [unlockDate, setUnlockDate] = useState(defaultDateTime.date);
   const [unlockTime, setUnlockTime] = useState(defaultDateTime.time);
   const [threshold, setThreshold] = useState(2);

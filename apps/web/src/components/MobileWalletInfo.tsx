@@ -31,39 +31,39 @@ export function MobileWalletInfo() {
           </button>
         </div>
 
-        {/* Wallet Address */}
-        <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-gray-600 text-sm font-medium">Address</span>
-            <button
-              onClick={() => navigator.clipboard.writeText(address)}
-              className="text-blue-600 hover:text-blue-800 text-xs px-2 py-1 border border-blue-300 rounded hover:bg-blue-50 transition-colors"
-            >
-              Copy
-            </button>
+        {/* Wallet Info Combined */}
+        <div className="p-4 bg-gradient-to-r from-blue-50 to-green-50 border border-blue-200 rounded-lg">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-gray-700 text-sm font-medium">
+              Wallet Info
+            </span>
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={() => navigator.clipboard.writeText(address)}
+                className="text-blue-600 hover:text-blue-800 text-xs px-2 py-1 border border-blue-300 rounded hover:bg-blue-50 transition-colors"
+              >
+                Copy
+              </button>
+              <button
+                onClick={refreshBalance}
+                className="text-blue-600 hover:text-blue-800 text-sm px-2 py-1 border border-blue-300 rounded hover:bg-blue-100 transition-colors"
+                title="Refresh balance"
+              >
+                ↻
+              </button>
+            </div>
           </div>
-          <div className="font-mono text-sm text-gray-900 break-all">
-            {address}
-          </div>
-        </div>
 
-        {/* Balance */}
-        <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-blue-800 text-sm font-medium">Balance</span>
-            <button
-              onClick={refreshBalance}
-              className="text-blue-600 hover:text-blue-800 text-sm px-2 py-1 border border-blue-300 rounded hover:bg-blue-100 transition-colors"
-              title="Refresh balance"
-            >
-              ↻ Refresh
-            </button>
+          {/* Combined Address and Balance Display */}
+          <div className="font-mono text-lg font-bold text-gray-900 break-all">
+            {address.slice(0, 6)}...{address.slice(-6)}.{balance || "0.0000"}{" "}
+            SUI↻
           </div>
-          {balance ? (
-            <div className="text-xl font-bold text-blue-900">{balance} SUI</div>
-          ) : (
-            <div className="text-gray-500 text-sm">Loading balance...</div>
-          )}
+
+          {/* Full Address (smaller, for reference) */}
+          <div className="text-xs text-gray-500 mt-2 font-mono break-all">
+            Full: {address}
+          </div>
         </div>
       </div>
     );

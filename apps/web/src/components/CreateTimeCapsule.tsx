@@ -16,9 +16,20 @@ export function CreateTimeCapsule({ onSuccess }: CreateTimeCapsuleProps) {
   const currentAccount = useCurrentAccount();
   const { mutate: signAndExecuteTransaction } = useSignAndExecuteTransaction();
 
+  // Set default date to today and time to current time + 5 minutes
+  const getDefaultDateTime = () => {
+    const now = new Date();
+    now.setMinutes(now.getMinutes() + 5);
+    return {
+      date: now.toISOString().split("T")[0], // Today's date in YYYY-MM-DD format
+      time: now.toTimeString().slice(0, 5), // Current time + 5 minutes in HH:MM format
+    };
+  };
+
+  const [defaultDateTime] = useState(() => getDefaultDateTime());
   const [textContent, setTextContent] = useState("");
-  const [unlockDate, setUnlockDate] = useState("");
-  const [unlockTime, setUnlockTime] = useState("");
+  const [unlockDate, setUnlockDate] = useState(defaultDateTime.date);
+  const [unlockTime, setUnlockTime] = useState(defaultDateTime.time);
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [debugInfo, setDebugInfo] = useState<any>(null);
