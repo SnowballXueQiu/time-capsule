@@ -29,11 +29,13 @@ export class WASMEncryption {
   async loadModule(wasmPath?: string): Promise<void> {
     try {
       // Load the actual WASM module
-      const wasmModule = await import("../wasm/encryptor_wasi.js");
-      // Initialize WASM module if it has an init function
-      if (wasmModule.default && typeof wasmModule.default === "function") {
+      const wasmModule = (await import("../wasm/encryptor_wasi.js")) as any;
+
+      // Initialize WASM module - the default export is the init function
+      if (typeof wasmModule.default === "function") {
         await wasmModule.default();
       }
+
       this.wasmModule = wasmModule;
       this.initialized = true;
       console.log("WASM encryption module loaded successfully");

@@ -1,6 +1,4 @@
-use crate::{
-    decrypt_content, encrypt_content, generate_key, generate_nonce, hash_content, EncryptionResult,
-};
+use crate::{decrypt_content, encrypt_content, generate_key, generate_nonce, hash_content};
 use wasm_bindgen::prelude::*;
 
 // JavaScript 接口

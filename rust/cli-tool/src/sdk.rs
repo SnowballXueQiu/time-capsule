@@ -244,7 +244,7 @@ impl CapsuleSDK {
         encryption_key: &str,
         payment: Option<u64>,
     ) -> Result<UnlockResult> {
-        info!("Unlocking capsule: {capsule_id}");
+        info!("Unlocking capsule: {} (payment: {:?})", capsule_id, payment);
 
         let pb = ProgressBar::new(4);
         pb.set_style(
@@ -271,10 +271,14 @@ impl CapsuleSDK {
         pb.inc(1);
 
         // Mock IPFS download and decryption
-        let mock_encrypted_content = b"encrypted_mock_content";
         let key_bytes = base64::engine::general_purpose::STANDARD
             .decode(encryption_key)
             .context("Invalid encryption key format")?;
+
+        debug!(
+            "Using encryption key of {} bytes for decryption",
+            key_bytes.len()
+        );
 
         // For mock implementation, just return mock content
         let mock_content = b"This is the decrypted content of the time capsule!".to_vec();
@@ -358,6 +362,12 @@ impl CapsuleSDK {
         approvers: Vec<String>,
         progress: Option<&ProgressBar>,
     ) -> Result<CreateCapsuleResult> {
+        info!(
+            "Creating multisig capsule with threshold {} and {} approvers",
+            threshold,
+            approvers.len()
+        );
+
         if let Some(pb) = progress {
             pb.set_message("Encrypting content...");
             pb.inc(1);
@@ -447,6 +457,11 @@ impl CapsuleSDK {
         payment: Option<u64>,
         progress: Option<&ProgressBar>,
     ) -> Result<UnlockResult> {
+        info!(
+            "Unlocking and decrypting capsule: {} (payment: {:?})",
+            capsule_id, payment
+        );
+
         if let Some(pb) = progress {
             pb.set_message("Validating unlock conditions...");
             pb.inc(1);
@@ -472,6 +487,11 @@ impl CapsuleSDK {
             .decode(encryption_key)
             .context("Invalid encryption key format")?;
 
+        debug!(
+            "Using encryption key of {} bytes for decryption",
+            key_bytes.len()
+        );
+
         // Mock content
         let mock_content = b"This is the decrypted content of the time capsule!".to_vec();
 
@@ -494,6 +514,8 @@ impl CapsuleSDK {
         capsule_id: &str,
         progress: Option<&ProgressBar>,
     ) -> Result<ApprovalResult> {
+        info!("Approving multisig capsule: {}", capsule_id);
+
         if let Some(pb) = progress {
             pb.set_message("Submitting approval...");
             pb.inc(1);
@@ -633,9 +655,14 @@ impl CapsuleSDK {
     }
 
     async fn upload_to_ipfs(&self, content: &[u8]) -> Result<String> {
-        debug!("Uploading {} bytes to IPFS", content.len());
+        debug!(
+            "Uploading {} bytes to IPFS using {}",
+            content.len(),
+            self.config.ipfs_url
+        );
 
         // Mock IPFS upload - in real version would use ipfs_client
+        let _client = &self.ipfs_client; // Would be used in real implementation
         tokio::time::sleep(tokio::time::Duration::from_millis(1000)).await;
 
         // Generate mock CID
@@ -653,7 +680,8 @@ impl CapsuleSDK {
     ) -> Result<String> {
         debug!("Creating {capsule_type} capsule on blockchain with value: {value}");
 
-        // Mock blockchain transaction
+        // Mock blockchain transaction - in real version would use http_client
+        let _client = &self.http_client; // Would be used for Sui RPC calls
         tokio::time::sleep(tokio::time::Duration::from_millis(1500)).await;
 
         let capsule_id = format!("0x{:x}", rand::random::<u64>());

@@ -386,7 +386,8 @@ export function CreateCapsuleForm() {
             if (
               change.objectType?.includes("TimeCapsule") ||
               change.objectType?.includes("capsule::TimeCapsule") ||
-              (change.owner === "Shared" &&
+              (typeof change.owner === "object" &&
+                "Shared" in change.owner &&
                 change.objectType?.includes("capsule"))
             ) {
               capsuleId = change.objectId;
@@ -447,7 +448,8 @@ export function CreateCapsuleForm() {
                 if (
                   change.type === "created" &&
                   (change.objectType?.includes("TimeCapsule") ||
-                    change.owner === "Shared")
+                    (typeof change.owner === "object" &&
+                      "Shared" in change.owner))
                 ) {
                   capsuleId = change.objectId;
                   console.log(
@@ -475,7 +477,7 @@ export function CreateCapsuleForm() {
             // Look for 32-byte sequences that might be object IDs (simplified approach)
             // This is a heuristic approach - in a production app you'd want proper BCS parsing
             for (let i = 0; i < effectsArray.length - 32; i++) {
-              const potentialId = effectsArray.slice(i, i + 32);
+              const potentialId = effectsArray.slice(i, i + 32) as number[];
               // Check if this looks like an object ID (starts with reasonable bytes)
               if (potentialId[0] !== 0 || potentialId.some((b) => b !== 0)) {
                 const hexId =

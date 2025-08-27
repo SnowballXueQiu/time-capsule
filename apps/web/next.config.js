@@ -26,6 +26,28 @@ const nextConfig = {
       ...config.resolve.alias,
     };
 
+    // Add WASM support
+    config.experiments = {
+      ...config.experiments,
+      asyncWebAssembly: true,
+      layers: true,
+    };
+
+    // Handle .wasm files
+    config.module.rules.push({
+      test: /\.wasm$/,
+      type: "webassembly/async",
+    });
+
+    // Ensure WASM files are treated as assets
+    config.module.rules.push({
+      test: /\.wasm$/,
+      type: "asset/resource",
+      generator: {
+        filename: "static/wasm/[name].[hash][ext]",
+      },
+    });
+
     return config;
   },
 };
