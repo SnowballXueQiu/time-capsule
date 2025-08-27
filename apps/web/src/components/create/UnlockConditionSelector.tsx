@@ -17,8 +17,19 @@ export function UnlockConditionSelector({
   const [conditionType, setConditionType] = useState<
     "time" | "multisig" | "payment"
   >("time");
-  const [unlockDate, setUnlockDate] = useState("");
-  const [unlockTime, setUnlockTime] = useState("");
+  // Set default date to today and time to current time + 5 minutes
+  const getDefaultDateTime = () => {
+    const now = new Date();
+    now.setMinutes(now.getMinutes() + 5);
+    return {
+      date: now.toISOString().split("T")[0], // Today's date in YYYY-MM-DD format
+      time: now.toTimeString().slice(0, 5), // Current time + 5 minutes in HH:MM format
+    };
+  };
+
+  const defaultDateTime = getDefaultDateTime();
+  const [unlockDate, setUnlockDate] = useState(defaultDateTime.date);
+  const [unlockTime, setUnlockTime] = useState(defaultDateTime.time);
   const [threshold, setThreshold] = useState(2);
   const [price, setPrice] = useState(1);
 
@@ -72,12 +83,6 @@ export function UnlockConditionSelector({
     const sizes = ["Bytes", "KB", "MB", "GB"];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
-  };
-
-  const getMinDateTime = () => {
-    const now = new Date();
-    now.setMinutes(now.getMinutes() + 5); // Minimum 5 minutes from now
-    return now.toISOString().slice(0, 16);
   };
 
   return (
