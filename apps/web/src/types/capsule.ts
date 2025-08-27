@@ -7,10 +7,8 @@ export interface ContentData {
 }
 
 export interface UnlockConditionData {
-  type: "time" | "multisig" | "payment";
-  unlockTime?: number;
-  threshold?: number;
-  price?: number;
+  type: "time";
+  unlockTime: number;
 }
 
 export interface CapsuleCreationResult {

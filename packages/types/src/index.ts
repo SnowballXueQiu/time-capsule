@@ -13,12 +13,8 @@ export interface Capsule {
 }
 
 export interface UnlockCondition {
-  type: "time" | "multisig" | "payment";
-  unlockTime?: number;
-  threshold?: number;
-  approvals?: string[];
-  price?: number;
-  paid?: boolean;
+  type: "time";
+  unlockTime: number;
 }
 
 export interface CapsuleCreationResult {

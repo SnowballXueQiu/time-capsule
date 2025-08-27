@@ -14,8 +14,6 @@
     "@mysten/dapp-kit": "^0.14.0",
     "@mysten/sui": "^1.0.0",
     "@tanstack/react-query": "^5.0.0",
-    "@time-capsule/sdk": "workspace:*",
-    "@time-capsule/types": "workspace:*",
     "multiformats": "^12.1.3",
     "next": "14.0.0",
     "react": "^18.2.0",

@@ -1,102 +1,154 @@
-import { Layout } from "../components/Layout";
+"use client";
+
+import { useState } from "react";
 import { WalletConnection } from "../components/WalletConnection";
-import Link from "next/link";
+import { CreateTimeCapsule } from "../components/CreateTimeCapsule";
+import { SimpleCapsuleList } from "../components/SimpleCapsuleList";
+import { TransactionLookup } from "../components/TransactionLookup";
 
 export default function Home() {
+  const [activeTab, setActiveTab] = useState<"create" | "list">("create");
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  const handleCreateSuccess = (result: any) => {
+    const shortId = result.capsuleId
+      ? result.capsuleId.slice(0, 16) + "..."
+      : "Unknown";
+    const unlockDate = new Date(result.unlockTime).toLocaleString();
+    setSuccessMessage(
+      `Time capsule created! ID: ${shortId} | Unlocks: ${unlockDate} | Tx: ${result.transactionDigest.slice(
+        0,
+        16
+      )}...`
+    );
+    setActiveTab("list");
+
+    // Clear success message after 10 seconds
+    setTimeout(() => {
+      setSuccessMessage(null);
+    }, 10000);
+  };
+
+  const handleUnlockCapsule = (capsule: any) => {
+    // Open IPFS content in new tab
+    const gatewayUrl = `${process.env.NEXT_PUBLIC_PINATA_GATEWAY}/ipfs/${capsule.cid}`;
+    window.open(gatewayUrl, "_blank");
+  };
+
   return (
-    <Layout>
-      {/* Wallet Connection Status */}
-      <div className="mb-8">
-        <WalletConnection />
-      </div>
-
-      <div className="text-center mb-12">
-        <h1 className="text-4xl font-bold text-gray-900 mb-4">
-          Decentralized Time Capsule
-        </h1>
-        <p className="text-xl text-gray-600 mb-8">
-          Store encrypted content with blockchain-based unlock conditions
-        </p>
-        <Link
-          href="/create"
-          className="inline-block px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors font-semibold"
-        >
-          Create Your First Capsule
-        </Link>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-        <div className="bg-white p-6 rounded-lg shadow-md">
-          <div className="text-blue-500 text-4xl mb-4">⏰</div>
-          <h2 className="text-xl font-semibold mb-4">Time-based Capsules</h2>
-          <p className="text-gray-600">
-            Lock content until a specific date and time. Perfect for future
-            messages, birthday surprises, or time-sensitive information.
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-4xl mx-auto px-4 py-8">
+        {/* Header */}
+        <div className="text-center mb-8">
+          <h1 className="text-4xl font-bold text-gray-900 mb-4">
+            Time Capsule
+          </h1>
+          <p className="text-xl text-gray-600 mb-8">
+            Store files with time-based unlock conditions on Sui blockchain
           </p>
         </div>
 
-        <div className="bg-white p-6 rounded-lg shadow-md">
-          <div className="text-green-500 text-4xl mb-4">👥</div>
-          <h2 className="text-xl font-semibold mb-4">Multisig Capsules</h2>
-          <p className="text-gray-600">
-            Require multiple signatures to unlock content. Ideal for group
-            decisions, shared secrets, or collaborative projects.
-          </p>
+        {/* Wallet Connection */}
+        <div className="mb-8">
+          <WalletConnection />
         </div>
 
-        <div className="bg-white p-6 rounded-lg shadow-md">
-          <div className="text-purple-500 text-4xl mb-4">💰</div>
-          <h2 className="text-xl font-semibold mb-4">Paid Capsules</h2>
-          <p className="text-gray-600">
-            Unlock content by paying the specified amount. Great for selling
-            digital content, creating bounties, or monetizing information.
-          </p>
-        </div>
-      </div>
+        {/* Success Message */}
+        {successMessage && (
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+            <div className="flex items-center">
+              <div className="text-green-400 text-xl mr-3">✅</div>
+              <div>
+                <h3 className="text-green-800 font-medium">Success!</h3>
+                <p className="text-green-600 text-sm mt-1">{successMessage}</p>
+              </div>
+            </div>
+          </div>
+        )}
 
-      <div className="bg-white rounded-lg shadow-md p-8">
-        <h2 className="text-2xl font-semibold text-center mb-6">
-          How It Works
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <div className="text-center">
-            <div className="bg-blue-100 rounded-full w-12 h-12 flex items-center justify-center mx-auto mb-4">
-              <span className="text-blue-600 font-bold">1</span>
-            </div>
-            <h3 className="font-semibold mb-2">Upload Content</h3>
-            <p className="text-sm text-gray-600">
-              Upload your files or enter text content
-            </p>
+        {/* Tab Navigation */}
+        <div className="bg-white rounded-lg shadow-sm mb-6">
+          <div className="flex border-b border-gray-200">
+            <button
+              onClick={() => setActiveTab("create")}
+              className={`flex-1 py-4 px-6 text-center font-medium ${
+                activeTab === "create"
+                  ? "text-blue-600 border-b-2 border-blue-600"
+                  : "text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              Create Capsule
+            </button>
+            <button
+              onClick={() => setActiveTab("list")}
+              className={`flex-1 py-4 px-6 text-center font-medium ${
+                activeTab === "list"
+                  ? "text-blue-600 border-b-2 border-blue-600"
+                  : "text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              My Capsules
+            </button>
           </div>
-          <div className="text-center">
-            <div className="bg-green-100 rounded-full w-12 h-12 flex items-center justify-center mx-auto mb-4">
-              <span className="text-green-600 font-bold">2</span>
+        </div>
+
+        {/* Tab Content */}
+        {activeTab === "create" && (
+          <CreateTimeCapsule onSuccess={handleCreateSuccess} />
+        )}
+
+        {activeTab === "list" && (
+          <>
+            <SimpleCapsuleList onUnlock={handleUnlockCapsule} />
+            <TransactionLookup />
+          </>
+        )}
+
+        {/* How It Works */}
+        <div className="bg-white rounded-lg shadow-md p-8 mt-12">
+          <h2 className="text-2xl font-semibold text-center mb-6">
+            How It Works
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+            <div className="text-center">
+              <div className="bg-blue-100 rounded-full w-12 h-12 flex items-center justify-center mx-auto mb-4">
+                <span className="text-blue-600 font-bold">1</span>
+              </div>
+              <h3 className="font-semibold mb-2">Connect Wallet</h3>
+              <p className="text-sm text-gray-600">
+                Connect your Sui wallet to get started
+              </p>
             </div>
-            <h3 className="font-semibold mb-2">Set Conditions</h3>
-            <p className="text-sm text-gray-600">
-              Choose unlock conditions: time, multisig, or payment
-            </p>
-          </div>
-          <div className="text-center">
-            <div className="bg-purple-100 rounded-full w-12 h-12 flex items-center justify-center mx-auto mb-4">
-              <span className="text-purple-600 font-bold">3</span>
+            <div className="text-center">
+              <div className="bg-green-100 rounded-full w-12 h-12 flex items-center justify-center mx-auto mb-4">
+                <span className="text-green-600 font-bold">2</span>
+              </div>
+              <h3 className="font-semibold mb-2">Upload File</h3>
+              <p className="text-sm text-gray-600">
+                Select a file and set unlock time
+              </p>
             </div>
-            <h3 className="font-semibold mb-2">Encrypt & Store</h3>
-            <p className="text-sm text-gray-600">
-              Content is encrypted and stored on IPFS
-            </p>
-          </div>
-          <div className="text-center">
-            <div className="bg-orange-100 rounded-full w-12 h-12 flex items-center justify-center mx-auto mb-4">
-              <span className="text-orange-600 font-bold">4</span>
+            <div className="text-center">
+              <div className="bg-purple-100 rounded-full w-12 h-12 flex items-center justify-center mx-auto mb-4">
+                <span className="text-purple-600 font-bold">3</span>
+              </div>
+              <h3 className="font-semibold mb-2">Store on IPFS</h3>
+              <p className="text-sm text-gray-600">
+                File is uploaded to IPFS via Pinata
+              </p>
             </div>
-            <h3 className="font-semibold mb-2">Unlock & Access</h3>
-            <p className="text-sm text-gray-600">
-              Access content when conditions are met
-            </p>
+            <div className="text-center">
+              <div className="bg-orange-100 rounded-full w-12 h-12 flex items-center justify-center mx-auto mb-4">
+                <span className="text-orange-600 font-bold">4</span>
+              </div>
+              <h3 className="font-semibold mb-2">Unlock & Access</h3>
+              <p className="text-sm text-gray-600">
+                Access content when time condition is met
+              </p>
+            </div>
           </div>
         </div>
       </div>
-    </Layout>
+    </div>
   );
 }

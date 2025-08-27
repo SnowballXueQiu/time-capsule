@@ -3,105 +3,79 @@
 const fs = require("fs");
 const path = require("path");
 
-const webDir = path.join(__dirname, "..", "apps", "web");
-const templatePath = path.join(webDir, ".env.template");
-const localPath = path.join(webDir, ".env.local");
+console.log("🔧 Setting up environment variables...");
 
-function setupEnvironment() {
-  console.log("🔧 Checking environment configuration...");
+const envPath = path.join(__dirname, "..", "apps", "web", ".env.local");
+const envExamplePath = path.join(
+  __dirname,
+  "..",
+  "apps",
+  "web",
+  ".env.local.example"
+);
 
-  // Check if template file exists
-  if (!fs.existsSync(templatePath)) {
-    console.error("❌ .env.template file not found");
-    process.exit(1);
-  }
+// Check if .env.local already exists
+if (fs.existsSync(envPath)) {
+  console.log("✅ .env.local already exists");
 
-  // Check if .env.local already exists
-  if (fs.existsSync(localPath)) {
-    console.log("✅ .env.local file already exists");
+  // Read current content
+  const envContent = fs.readFileSync(envPath, "utf8");
 
-    // Check if it contains necessary Pinata configuration
-    const localContent = fs.readFileSync(localPath, "utf8");
-    const hasApiKey =
-      localContent.includes("NEXT_PUBLIC_PINATA_API_KEY=") &&
-      !localContent.includes(
-        "NEXT_PUBLIC_PINATA_API_KEY=your_pinata_api_key_here"
-      );
-    const hasApiSecret =
-      localContent.includes("NEXT_PUBLIC_PINATA_API_SECRET=") &&
-      !localContent.includes(
-        "NEXT_PUBLIC_PINATA_API_SECRET=your_pinata_api_secret_here"
-      );
-    const hasJWT =
-      localContent.includes("NEXT_PUBLIC_PINATA_JWT=") &&
-      !localContent.includes(
-        "NEXT_PUBLIC_PINATA_JWT=your_pinata_jwt_token_here"
-      );
+  // Check for required variables
+  const requiredVars = [
+    "NEXT_PUBLIC_PINATA_JWT",
+    "NEXT_PUBLIC_PINATA_GATEWAY",
+    "PINATA_JWT",
+    "PINATA_GATEWAY",
+    "NEXT_PUBLIC_PACKAGE_ID",
+  ];
 
-    if (hasApiKey && hasApiSecret && hasJWT) {
-      console.log("✅ Pinata configuration is complete");
-      return;
+  console.log("\n📋 Environment variables status:");
+  for (const varName of requiredVars) {
+    if (
+      envContent.includes(`${varName}=`) &&
+      !envContent.includes(`${varName}=your_`)
+    ) {
+      console.log(`✅ ${varName} - configured`);
     } else {
-      console.log(
-        "⚠️  .env.local exists but Pinata configuration is incomplete"
-      );
-
-      // Try to merge configurations
-      const templateContent = fs.readFileSync(templatePath, "utf8");
-      const templateLines = templateContent.split("\n");
-      const localLines = localContent.split("\n");
-
-      // Create merged configuration
-      const mergedLines = [...localLines];
-
-      templateLines.forEach((templateLine) => {
-        const trimmedLine = templateLine.trim();
-        if (trimmedLine && !trimmedLine.startsWith("#")) {
-          const [key] = trimmedLine.split("=");
-          const existingLineIndex = localLines.findIndex((line) =>
-            line.trim().startsWith(key + "=")
-          );
-
-          if (existingLineIndex === -1) {
-            // Add missing configuration items
-            mergedLines.push(templateLine);
-          }
-        }
-      });
-
-      // Write merged configuration
-      fs.writeFileSync(localPath, mergedLines.join("\n"));
-      console.log(
-        "✅ Updated .env.local file with missing configuration items"
-      );
-      console.log("📝 Please check and fill in your Pinata credentials");
-      return;
+      console.log(`⚠️  ${varName} - needs configuration`);
     }
   }
 
-  // Copy template file to .env.local
-  try {
-    const templateContent = fs.readFileSync(templatePath, "utf8");
-    fs.writeFileSync(localPath, templateContent);
-    console.log("✅ Created .env.local file from template");
-    console.log("");
+  console.log("\n💡 To configure Pinata:");
+  console.log("1. Sign up at https://pinata.cloud");
+  console.log("2. Create an API key");
+  console.log("3. Update the values in apps/web/.env.local");
+} else {
+  // Copy from example
+  if (fs.existsSync(envExamplePath)) {
+    fs.copyFileSync(envExamplePath, envPath);
+    console.log("✅ Created .env.local from example");
     console.log(
-      "📝 Please edit apps/web/.env.local file and fill in your Pinata credentials:"
+      "⚠️  Please configure your Pinata credentials in apps/web/.env.local"
     );
-    console.log("");
-    console.log("1. Visit https://app.pinata.cloud/keys");
-    console.log("2. Create a new API Key");
-    console.log("3. Copy API Key, API Secret and JWT Token");
-    console.log("4. Replace placeholders in .env.local file");
-    console.log("");
-  } catch (error) {
-    console.error("❌ Failed to create .env.local file:", error.message);
-    process.exit(1);
+  } else {
+    // Create basic .env.local
+    const basicEnv = `# Pinata IPFS Configuration
+NEXT_PUBLIC_PINATA_JWT=your_pinata_jwt_here
+NEXT_PUBLIC_PINATA_GATEWAY=your_gateway_domain.mypinata.cloud
+PINATA_JWT=your_pinata_jwt_here
+PINATA_GATEWAY=your_gateway_domain.mypinata.cloud
+
+# Sui Network Configuration
+NEXT_PUBLIC_PACKAGE_ID=0x0
+`;
+
+    fs.writeFileSync(envPath, basicEnv);
+    console.log("✅ Created basic .env.local");
+    console.log("⚠️  Please configure your Pinata credentials");
   }
+
+  console.log("\n💡 Next steps:");
+  console.log("1. Sign up at https://pinata.cloud");
+  console.log("2. Create an API key");
+  console.log("3. Update the JWT and Gateway values in apps/web/.env.local");
+  console.log("4. Deploy the smart contract with: pnpm deploy");
 }
 
-if (require.main === module) {
-  setupEnvironment();
-}
-
-module.exports = { setupEnvironment };
+console.log("\n🎯 Ready to run: pnpm dev");

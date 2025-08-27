@@ -8,47 +8,50 @@ console.log("🚀 Deploying Time Capsule smart contract to Sui testnet...");
 
 try {
   // Check if sui CLI is available
+  const suiCommand = process.platform === "win32" ? "lib\\sui.exe" : "sui";
   try {
-    execSync("sui --version", { stdio: "pipe" });
+    execSync(`${suiCommand} --version`, { stdio: "pipe" });
   } catch (error) {
-    console.error("❌ Sui CLI not found. Please install Sui CLI first.");
-    console.log(
-      "📖 Installation guide: https://docs.sui.io/guides/developer/getting-started/sui-install"
-    );
+    console.error("❌ Sui CLI not found. Please make sure lib/sui.exe exists.");
+    console.log("💡 Download Sui CLI and place it in lib/sui.exe");
     process.exit(1);
   }
 
   // Check if we have a Sui client configuration
   try {
-    const clientConfig = execSync("sui client active-env", {
+    const clientConfig = execSync(`${suiCommand} client active-env`, {
       encoding: "utf8",
     });
     console.log(`📡 Active environment: ${clientConfig.trim()}`);
   } catch (error) {
     console.error("❌ No active Sui client environment found.");
     console.log(
-      "💡 Run: sui client new-env --alias testnet --rpc https://fullnode.testnet.sui.io:443"
+      `💡 Run: ${suiCommand} client new-env --alias testnet --rpc https://fullnode.testnet.sui.io:443`
     );
-    console.log("💡 Then: sui client switch --env testnet");
+    console.log(`💡 Then: ${suiCommand} client switch --env testnet`);
     process.exit(1);
   }
 
   // Check if we have an active address
   try {
-    const activeAddress = execSync("sui client active-address", {
+    const activeAddress = execSync(`${suiCommand} client active-address`, {
       encoding: "utf8",
     });
     console.log(`👤 Active address: ${activeAddress.trim()}`);
   } catch (error) {
     console.error("❌ No active address found.");
-    console.log("💡 Run: sui client new-address ed25519");
-    console.log("💡 Then: sui client switch --address <your-address>");
+    console.log(`💡 Run: ${suiCommand} client new-address ed25519`);
+    console.log(
+      `💡 Then: ${suiCommand} client switch --address <your-address>`
+    );
     process.exit(1);
   }
 
   // Check balance
   try {
-    const balance = execSync("sui client balance", { encoding: "utf8" });
+    const balance = execSync(`${suiCommand} client balance`, {
+      encoding: "utf8",
+    });
     console.log("💰 Current balance:");
     console.log(balance);
 
@@ -74,7 +77,7 @@ try {
   process.chdir(contractDir);
 
   try {
-    execSync("sui move build", { stdio: "inherit" });
+    execSync(`${suiCommand} move build`, { stdio: "inherit" });
     console.log("✅ Contract built successfully");
   } catch (error) {
     console.error("❌ Contract build failed");
@@ -85,10 +88,13 @@ try {
   console.log("📦 Deploying contract to testnet...");
 
   try {
-    const deployOutput = execSync("sui client publish --gas-budget 100000000", {
-      encoding: "utf8",
-      stdio: "pipe",
-    });
+    const deployOutput = execSync(
+      `${suiCommand} client publish --gas-budget 100000000`,
+      {
+        encoding: "utf8",
+        stdio: "pipe",
+      }
+    );
 
     console.log("✅ Contract deployed successfully!");
     console.log("\n📋 Deployment details:");
