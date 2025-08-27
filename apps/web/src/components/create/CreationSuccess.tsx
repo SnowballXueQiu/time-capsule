@@ -43,23 +43,11 @@ export function CreationSuccess({
   };
 
   const formatUnlockCondition = () => {
-    switch (unlockCondition.type) {
-      case "time":
-        if (unlockCondition.unlockTime) {
-          const date = new Date(unlockCondition.unlockTime);
-          return `Time-based: ${date.toLocaleDateString()} at ${date.toLocaleTimeString()}`;
-        }
-        return "Time-based";
-
-      case "multisig":
-        return `Multi-signature: ${unlockCondition.threshold} approvals required`;
-
-      case "payment":
-        return `Payment-based: ${unlockCondition.price} SUI required`;
-
-      default:
-        return "Unknown condition";
+    if (unlockCondition.unlockTime) {
+      const date = new Date(unlockCondition.unlockTime);
+      return `Time-based: ${date.toLocaleDateString()} at ${date.toLocaleTimeString()}`;
     }
+    return "Time-based";
   };
 
   const formatFileSize = (bytes: number): string => {
@@ -254,25 +242,6 @@ export function CreationSuccess({
         </h3>
 
         <div className="space-y-4">
-          {unlockCondition.type === "multisig" && (
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <div className="flex items-start">
-                <div className="text-blue-400 text-xl mr-3">👥</div>
-                <div>
-                  <h4 className="text-blue-800 font-medium">
-                    Multi-signature Setup
-                  </h4>
-                  <p className="text-blue-600 text-sm mt-1">
-                    Share your Capsule ID with trusted parties so they can
-                    approve the capsule. Once {unlockCondition.threshold}{" "}
-                    approval{unlockCondition.threshold !== 1 ? "s are" : " is"}{" "}
-                    received, the capsule can be unlocked.
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="border border-gray-200 rounded-lg p-4">
               <h4 className="font-medium text-gray-900 mb-2">

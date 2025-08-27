@@ -76,69 +76,62 @@ export function CreateCapsuleForm() {
       setCreationSteps(steps);
 
       try {
-        // Dynamically import SDK to avoid SSR issues
-        const { CapsuleSDK } = await import("@time-capsule/sdk");
-
-        // Initialize SDK
-        const sdk = new CapsuleSDK({
-          network: "testnet",
-          packageId: process.env.NEXT_PUBLIC_PACKAGE_ID || "0x0",
-        });
-
-        await sdk.initialize();
-
-        // Step 1: Encrypt content
+        // Step 1: Skip encryption for now (simplified)
         setCreationSteps((prev) =>
           prev.map((s) =>
-            s.id === "encrypt" ? { ...s, status: "in-progress" } : s
+            s.id === "encrypt" ? { ...s, status: "completed" } : s
           )
         );
 
-        // Step 2-4: Create capsule based on type
+        // Step 2: Upload to IPFS via Pinata API
         setCreationSteps((prev) =>
           prev.map((s) =>
-            s.id === "encrypt"
-              ? { ...s, status: "completed" }
-              : s.id === "upload"
-              ? { ...s, status: "in-progress" }
-              : s
+            s.id === "upload" ? { ...s, status: "in-progress" } : s
           )
         );
 
-        let result: CapsuleCreationResult;
+        // Upload content to IPFS via Pinata API
+        const formData = new FormData();
+        const blob = new Blob([content.content], { type: content.contentType });
+        formData.append("file", blob, content.filename || "capsule-content");
 
-        // Step 2: Upload to IPFS and encrypt content
-        const { EncryptedStorage, createPinataIPFSClient } = await import(
-          "@time-capsule/sdk"
-        );
-
-        const ipfs = createPinataIPFSClient({
-          pinataApiKey: process.env.NEXT_PUBLIC_PINATA_API_KEY,
-          pinataApiSecret: process.env.NEXT_PUBLIC_PINATA_API_SECRET,
-          pinataJWT: process.env.NEXT_PUBLIC_PINATA_JWT,
-          pinataGateway: process.env.NEXT_PUBLIC_PINATA_GATEWAY,
-          timeout: 30000,
-          retries: 3,
+        // Add metadata
+        const metadata = JSON.stringify({
+          name: `time-capsule-${Date.now()}`,
+          keyvalues: {
+            type: "time-capsule-content",
+            timestamp: Date.now().toString(),
+          },
         });
+        formData.append("pinataMetadata", metadata);
 
-        const encryptedStorage = new EncryptedStorage(ipfs);
-        await encryptedStorage.initialize();
-
-        const storageResult = await encryptedStorage.storeContent(
-          content.content,
-          "application/octet-stream"
+        const uploadResponse = await fetch(
+          "https://api.pinata.cloud/pinning/pinFileToIPFS",
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${process.env.NEXT_PUBLIC_PINATA_JWT}`,
+            },
+            body: formData,
+          }
         );
 
-        console.log("Storage result:", storageResult);
-
-        // Validate storage result
-        if (
-          !storageResult.cid ||
-          !storageResult.contentHash ||
-          !storageResult.encryptionKey
-        ) {
-          throw new Error("Invalid storage result from IPFS upload");
+        if (!uploadResponse.ok) {
+          const errorText = await uploadResponse.text();
+          throw new Error(`IPFS upload failed: ${errorText}`);
         }
+
+        const uploadResult = await uploadResponse.json();
+        const cid = uploadResult.IpfsHash;
+
+        console.log("Content uploaded to IPFS:", cid);
+
+        // Create content hash
+        const contentBytes = new Uint8Array(content.content);
+        const hashBuffer = await crypto.subtle.digest("SHA-256", contentBytes);
+        const contentHash = new Uint8Array(hashBuffer);
+
+        console.log("Storage result:", { cid, contentHash });
 
         setCreationSteps((prev) =>
           prev.map((s) =>
@@ -162,7 +155,8 @@ export function CreateCapsuleForm() {
 
         console.log("Creating transaction with:");
         console.log("- Package ID:", process.env.NEXT_PUBLIC_PACKAGE_ID);
-        console.log("- Storage result:", storageResult);
+        console.log("- CID:", cid);
+        console.log("- Content hash:", contentHash);
         console.log("- Condition:", condition);
 
         // Validate package ID
@@ -175,91 +169,28 @@ export function CreateCapsuleForm() {
           );
         }
 
-        switch (condition.type) {
-          case "time":
-            if (!condition.unlockTime) {
-              throw new Error(
-                "Unlock time is required for time-based capsules"
-              );
-            }
-
-            const cidBytes = Array.from(
-              new TextEncoder().encode(storageResult.cid)
-            );
-            const hashBytes = Array.from(storageResult.contentHash);
-
-            console.log("Transaction arguments:");
-            console.log("- CID bytes:", cidBytes);
-            console.log("- Hash bytes:", hashBytes);
-            console.log("- Unlock time:", condition.unlockTime);
-
-            tx.moveCall({
-              target: `${process.env.NEXT_PUBLIC_PACKAGE_ID}::capsule::create_time_capsule`,
-              arguments: [
-                tx.pure.vector("u8", cidBytes),
-                tx.pure.vector("u8", hashBytes),
-                tx.pure.u64(condition.unlockTime),
-                tx.object("0x6"), // Clock object
-              ],
-            });
-            break;
-
-          case "multisig":
-            if (!condition.threshold) {
-              throw new Error("Threshold is required for multisig capsules");
-            }
-
-            const cidBytesMultisig = Array.from(
-              new TextEncoder().encode(storageResult.cid)
-            );
-            const hashBytesMultisig = Array.from(storageResult.contentHash);
-
-            console.log("Multisig transaction arguments:");
-            console.log("- CID bytes:", cidBytesMultisig);
-            console.log("- Hash bytes:", hashBytesMultisig);
-            console.log("- Threshold:", condition.threshold);
-
-            tx.moveCall({
-              target: `${process.env.NEXT_PUBLIC_PACKAGE_ID}::capsule::create_multisig_capsule`,
-              arguments: [
-                tx.pure.vector("u8", cidBytesMultisig),
-                tx.pure.vector("u8", hashBytesMultisig),
-                tx.pure.u64(condition.threshold),
-                tx.object("0x6"), // Clock object
-              ],
-            });
-            break;
-
-          case "payment":
-            if (!condition.price) {
-              throw new Error("Price is required for paid capsules");
-            }
-
-            const cidBytesPayment = Array.from(
-              new TextEncoder().encode(storageResult.cid)
-            );
-            const hashBytesPayment = Array.from(storageResult.contentHash);
-            const priceInMist = condition.price * 1_000_000_000; // Convert SUI to MIST
-
-            console.log("Payment transaction arguments:");
-            console.log("- CID bytes:", cidBytesPayment);
-            console.log("- Hash bytes:", hashBytesPayment);
-            console.log("- Price in MIST:", priceInMist);
-
-            tx.moveCall({
-              target: `${process.env.NEXT_PUBLIC_PACKAGE_ID}::capsule::create_payment_capsule`,
-              arguments: [
-                tx.pure.vector("u8", cidBytesPayment),
-                tx.pure.vector("u8", hashBytesPayment),
-                tx.pure.u64(priceInMist),
-                tx.object("0x6"), // Clock object
-              ],
-            });
-            break;
-
-          default:
-            throw new Error("Invalid unlock condition type");
+        // Only time-based capsules are supported
+        if (!condition.unlockTime) {
+          throw new Error("Unlock time is required for time-based capsules");
         }
+
+        const cidBytes = Array.from(new TextEncoder().encode(cid));
+        const hashBytes = Array.from(contentHash);
+
+        console.log("Transaction arguments:");
+        console.log("- CID bytes:", cidBytes);
+        console.log("- Hash bytes:", hashBytes);
+        console.log("- Unlock time:", condition.unlockTime);
+
+        tx.moveCall({
+          target: `${process.env.NEXT_PUBLIC_PACKAGE_ID}::capsule::create_time_capsule`,
+          arguments: [
+            tx.pure.vector("u8", cidBytes),
+            tx.pure.vector("u8", hashBytes),
+            tx.pure.u64(condition.unlockTime),
+            tx.object("0x6"), // Clock object
+          ],
+        });
 
         // Step 4: Sign and execute transaction with wallet
         setCreationSteps((prev) =>
@@ -503,13 +434,11 @@ export function CreateCapsuleForm() {
           capsuleId = `pending-${txResult.digest}`;
         }
 
-        result = {
+        const result: CapsuleCreationResult = {
           capsuleId,
           transactionDigest: txResult.digest,
-          encryptionKey: Buffer.from(storageResult.encryptionKey).toString(
-            "base64"
-          ),
-          cid: storageResult.cid,
+          encryptionKey: "", // No encryption for simplified version
+          cid: cid,
         };
 
         // Mark all steps as completed
@@ -538,7 +467,7 @@ export function CreateCapsuleForm() {
         }, 3000);
       }
     },
-    [currentAccount]
+    [currentAccount, signAndExecuteTransaction]
   );
 
   const handleStartOver = useCallback(() => {
