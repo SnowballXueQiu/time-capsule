@@ -285,11 +285,6 @@ export function CreateCapsuleForm() {
             signAndExecuteTransaction(
               {
                 transaction: tx,
-                options: {
-                  showEffects: true,
-                  showEvents: true,
-                  showObjectChanges: true,
-                },
               },
               {
                 onSuccess: (result) => {
