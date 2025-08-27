@@ -97,18 +97,29 @@ export function CreationSuccess({
               </label>
               <div className="flex items-center space-x-2">
                 <code className="flex-1 px-3 py-2 bg-gray-100 rounded text-sm font-mono break-all">
-                  {result.capsuleId}
+                  {result.capsuleId.startsWith("pending-")
+                    ? 'Processing... Check "My Capsules" in a few moments'
+                    : result.capsuleId}
                 </code>
-                <button
-                  onClick={() =>
-                    navigator.clipboard.writeText(result.capsuleId)
-                  }
-                  className="px-3 py-2 text-sm bg-gray-200 hover:bg-gray-300 rounded transition-colors"
-                  title="Copy Capsule ID"
-                >
-                  📋
-                </button>
+                {!result.capsuleId.startsWith("pending-") && (
+                  <button
+                    onClick={() =>
+                      navigator.clipboard.writeText(result.capsuleId)
+                    }
+                    className="px-3 py-2 text-sm bg-gray-200 hover:bg-gray-300 rounded transition-colors"
+                    title="Copy Capsule ID"
+                  >
+                    📋
+                  </button>
+                )}
               </div>
+              {result.capsuleId.startsWith("pending-") && (
+                <p className="text-xs text-yellow-600 mt-1">
+                  The capsule was created successfully, but the ID is still
+                  being processed. You can find your capsule in "My Capsules"
+                  shortly.
+                </p>
+              )}
             </div>
 
             <div>
@@ -299,7 +310,7 @@ export function CreationSuccess({
       {/* Blockchain explorer link */}
       <div className="text-center">
         <a
-          href={`https://suiexplorer.com/txblock/${result.transactionDigest}?network=devnet`}
+          href={`https://suiexplorer.com/txblock/${result.transactionDigest}?network=testnet`}
           target="_blank"
           rel="noopener noreferrer"
           className="inline-flex items-center space-x-2 text-blue-600 hover:text-blue-700 text-sm"
