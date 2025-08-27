@@ -170,10 +170,7 @@ export function SimpleCapsuleList({ onUnlock }: CapsuleListProps) {
         <div className="text-red-600 text-center">
           <div className="text-4xl mb-4">⚠️</div>
           <p>{error}</p>
-          <button
-            onClick={loadCapsules}
-            className="mt-4 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
-          >
+          <button onClick={loadCapsules} className="mt-4 btn-danger">
             Retry
           </button>
         </div>
@@ -188,10 +185,7 @@ export function SimpleCapsuleList({ onUnlock }: CapsuleListProps) {
           My Time Capsules
         </h2>
         <div className="flex space-x-2">
-          <button
-            onClick={loadCapsules}
-            className="px-4 py-2 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200"
-          >
+          <button onClick={loadCapsules} className="btn-secondary text-sm">
             Refresh
           </button>
           <button
@@ -206,7 +200,7 @@ export function SimpleCapsuleList({ onUnlock }: CapsuleListProps) {
                 );
               }
             }}
-            className="px-4 py-2 text-sm bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
+            className="btn-outline text-sm"
           >
             Debug
           </button>
@@ -276,7 +270,7 @@ export function SimpleCapsuleList({ onUnlock }: CapsuleListProps) {
                   {capsule.unlocked || Date.now() >= capsule.unlockTime ? (
                     <button
                       onClick={() => onUnlock?.(capsule)}
-                      className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+                      className="btn-success"
                     >
                       View Content
                     </button>

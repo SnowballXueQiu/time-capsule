@@ -16,35 +16,34 @@ export function WalletConnection() {
 
   if (isConnected && address) {
     return (
-      <div className="flex items-center space-x-4 bg-green-50 border border-green-200 rounded-lg p-4">
-        <div className="flex-1">
-          <div className="flex items-center space-x-2">
-            <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-            <span className="text-sm font-medium text-green-800">
-              Wallet Connected
-            </span>
-          </div>
-          <div className="text-sm text-green-600 mt-1">
-            <div>
-              Address: {address.slice(0, 6)}...{address.slice(-4)}
-            </div>
-            {balance && (
-              <div className="flex items-center space-x-2">
-                <span>Balance: {balance} SUI</span>
-                <button
-                  onClick={refreshBalance}
-                  className="text-green-700 hover:text-green-900 underline text-xs"
-                >
-                  Refresh
-                </button>
-              </div>
-            )}
-          </div>
+      <div className="flex items-center space-x-3">
+        {/* Status Indicator - Hidden on mobile */}
+        <div className="hidden sm:flex items-center space-x-2 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
+          <div className="w-2 h-2 bg-green-400 rounded-full"></div>
+          <span className="text-green-800 text-sm font-medium">Connected</span>
         </div>
-        <button
-          onClick={disconnectWallet}
-          className="px-3 py-1 text-sm bg-red-100 text-red-700 rounded hover:bg-red-200 transition-colors"
-        >
+
+        {/* Address - Hidden on small screens */}
+        <div className="hidden md:block text-sm text-gray-600">
+          {address.slice(0, 6)}...{address.slice(-4)}
+        </div>
+
+        {/* Balance - Hidden on mobile */}
+        {balance && (
+          <div className="hidden lg:flex items-center space-x-1 text-sm text-gray-600">
+            <span>{balance} SUI</span>
+            <button
+              onClick={refreshBalance}
+              className="text-blue-600 hover:text-blue-800 text-xs"
+              title="Refresh balance"
+            >
+              ↻
+            </button>
+          </div>
+        )}
+
+        {/* Disconnect Button */}
+        <button onClick={disconnectWallet} className="btn-danger text-sm">
           Disconnect
         </button>
       </div>
@@ -52,28 +51,33 @@ export function WalletConnection() {
   }
 
   return (
-    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <div className="flex items-center space-x-2">
-            <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
-            <span className="text-sm font-medium text-yellow-800">
-              {isConnecting ? "Connecting..." : "Wallet Not Connected"}
-            </span>
-          </div>
-          <p className="text-sm text-yellow-600 mt-1">
-            Connect your Sui wallet to create and manage time capsules
-          </p>
-          {error && <p className="text-sm text-red-600 mt-1">Error: {error}</p>}
-        </div>
-        <button
-          onClick={connectWallet}
-          disabled={isConnecting}
-          className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-        >
-          {isConnecting ? "Connecting..." : "Connect Wallet"}
-        </button>
+    <div className="flex items-center space-x-3">
+      {/* Status Indicator - Hidden on mobile */}
+      <div className="hidden sm:flex items-center space-x-2 bg-orange-50 border border-orange-200 rounded-lg px-3 py-2">
+        <div className="w-2 h-2 bg-orange-400 rounded-full"></div>
+        <span className="text-orange-800 text-sm font-medium">
+          {isConnecting ? "Connecting..." : "Not Connected"}
+        </span>
       </div>
+
+      {/* Error Message - Only on desktop */}
+      {error && (
+        <div
+          className="hidden md:block text-sm text-red-600 max-w-32 truncate"
+          title={error}
+        >
+          Error: {error}
+        </div>
+      )}
+
+      {/* Connect Button */}
+      <button
+        onClick={() => connectWallet()}
+        disabled={isConnecting}
+        className="btn-primary text-sm"
+      >
+        {isConnecting ? "Connecting..." : "Connect"}
+      </button>
     </div>
   );
 }

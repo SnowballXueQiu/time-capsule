@@ -186,7 +186,7 @@ export function UnlockModal({
             <button
               onClick={handleUnlock}
               disabled={unlocking}
-              className="w-full px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full btn-success"
             >
               {unlocking ? "Unlocking..." : "Unlock Capsule"}
             </button>
@@ -219,7 +219,7 @@ export function UnlockModal({
           <button
             onClick={handleDecrypt}
             disabled={decrypting || (!capsule.unlocked && !unlocking)}
-            className="w-full px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed mb-4"
+            className="w-full btn-primary mb-4"
           >
             {decrypting ? "Decrypting..." : "Decrypt Content"}
           </button>
@@ -247,7 +247,7 @@ export function UnlockModal({
 
               <button
                 onClick={downloadContent}
-                className="mt-3 px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 text-sm"
+                className="mt-3 btn-secondary text-sm"
               >
                 Download Content
               </button>

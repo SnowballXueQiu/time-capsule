@@ -2,6 +2,276 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Custom scrollbar for better UX */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+/* Smooth transitions */
+* {
+  transition-property: color, background-color, border-color,
+    text-decoration-color, fill, stroke;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 150ms;
+}
+
+/* Mobile-specific styles */
+@media (max-width: 768px) {
+  body {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* Focus styles for accessibility */
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+/* Remove default focus outline and button styles */
+button:focus {
+  outline: none;
+}
+
+button:focus:not(:focus-visible) {
+  outline: none;
+  box-shadow: none;
+}
+
+/* Enhanced button interaction styles */
+.btn-primary {
+  @apply bg-blue-600 text-white px-4 py-2 rounded-lg font-medium transition-all duration-150 ease-out;
+  @apply hover:bg-blue-700 hover:shadow-lg hover:shadow-blue-500/25 hover:-translate-y-0.5 hover:scale-105;
+  @apply active:bg-blue-800 active:shadow-md active:shadow-blue-500/20 active:translate-y-0 active:scale-100;
+  @apply focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2;
+  @apply disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-blue-600 disabled:hover:shadow-none disabled:hover:translate-y-0 disabled:hover:scale-100;
+  transform-origin: center;
+}
+
+.btn-secondary {
+  @apply bg-gray-100 text-gray-700 px-4 py-2 rounded-lg font-medium transition-all duration-150 ease-out;
+  @apply hover:bg-gray-200 hover:shadow-lg hover:shadow-gray-500/15 hover:-translate-y-0.5 hover:scale-105;
+  @apply active:bg-gray-300 active:shadow-md active:shadow-gray-500/10 active:translate-y-0 active:scale-100;
+  @apply focus-visible:ring-2 focus-visible:ring-gray-500 focus-visible:ring-offset-2;
+  transform-origin: center;
+}
+
+.btn-success {
+  @apply bg-green-600 text-white px-4 py-2 rounded-lg font-medium transition-all duration-150 ease-out;
+  @apply hover:bg-green-700 hover:shadow-lg hover:shadow-green-500/25 hover:-translate-y-0.5 hover:scale-105;
+  @apply active:bg-green-800 active:shadow-md active:shadow-green-500/20 active:translate-y-0 active:scale-100;
+  @apply focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-2;
+  transform-origin: center;
+}
+
+.btn-danger {
+  @apply bg-red-600 text-white px-4 py-2 rounded-lg font-medium transition-all duration-150 ease-out;
+  @apply hover:bg-red-700 hover:shadow-lg hover:shadow-red-500/25 hover:-translate-y-0.5 hover:scale-105;
+  @apply active:bg-red-800 active:shadow-md active:shadow-red-500/20 active:translate-y-0 active:scale-100;
+  @apply focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2;
+  transform-origin: center;
+}
+
+.btn-outline {
+  @apply border-2 border-blue-600 text-blue-600 bg-transparent px-4 py-2 rounded-lg font-medium transition-all duration-150 ease-out;
+  @apply hover:bg-blue-600 hover:text-white hover:shadow-lg hover:shadow-blue-500/25 hover:-translate-y-0.5 hover:scale-105;
+  @apply active:bg-blue-700 active:border-blue-700 active:shadow-md active:shadow-blue-500/20 active:translate-y-0 active:scale-100;
+  @apply focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2;
+  transform-origin: center;
+}
+
+.btn-ghost {
+  @apply text-gray-600 bg-transparent px-4 py-2 rounded-lg font-medium transition-all duration-150 ease-out;
+  @apply hover:bg-gray-100 hover:text-gray-800 hover:shadow-md hover:-translate-y-0.5 hover:scale-105;
+  @apply active:bg-gray-200 active:shadow-sm active:translate-y-0 active:scale-100;
+  @apply focus-visible:ring-2 focus-visible:ring-gray-500 focus-visible:ring-offset-2;
+  transform-origin: center;
+}
+
+/* Interactive elements */
+.interactive {
+  @apply transition-all duration-150 ease-out;
+  @apply hover:shadow-lg hover:-translate-y-0.5 hover:scale-105;
+  @apply active:shadow-md active:translate-y-0 active:scale-100;
+  transform-origin: center;
+}
+
+/* Card hover effects */
+.card-hover {
+  @apply transition-all duration-200 ease-out;
+  @apply hover:shadow-xl hover:-translate-y-2;
+  @apply active:shadow-lg active:-translate-y-1;
+  transform-origin: center;
+}
+
+.card-hover:hover {
+  transform: translateY(-8px) scale(1.02);
+}
+
+.card-hover:active {
+  transform: translateY(-4px) scale(1.01);
+}
+
+/* Tab button styles */
+.tab-button {
+  @apply px-6 py-3 font-medium transition-all duration-150 ease-out rounded-lg;
+  @apply hover:bg-gray-50 hover:shadow-md hover:-translate-y-0.5 hover:scale-105;
+  @apply active:bg-gray-100 active:shadow-sm active:translate-y-0 active:scale-100;
+  @apply focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2;
+  @apply focus:outline-none;
+  transform-origin: center;
+}
+
+.tab-button.active {
+  @apply text-blue-600 border-b-2 border-blue-600 bg-blue-50;
+  @apply shadow-sm;
+}
+
+/* Mobile tab styles */
+.mobile-tab {
+  @apply flex flex-col items-center justify-center py-3 px-2 transition-all duration-150 ease-out;
+  @apply active:bg-gray-100 active:scale-95;
+  @apply focus:outline-none;
+  transform-origin: center;
+}
+
+.mobile-tab.active {
+  @apply text-blue-600 bg-blue-50 shadow-sm;
+}
+
+/* Mobile side panel styles */
+.mobile-side-panel {
+  /* Ensure panel is above everything */
+  z-index: 9999;
+  /* Smooth hardware acceleration */
+  will-change: transform;
+  /* Prevent scrolling issues */
+  overscroll-behavior: contain;
+}
+
+/* Prevent body scroll when panel is open */
+.mobile-panel-open {
+  overflow: hidden;
+  position: fixed;
+  width: 100%;
+}
+
+/* Enhanced mobile tab bar */
+.mobile-tab-bar {
+  /* Ensure it's above content but below panels */
+  z-index: 50;
+  /* Add safe area padding for newer phones */
+  padding-bottom: env(safe-area-inset-bottom);
+  /* Backdrop blur for modern look */
+  backdrop-filter: blur(10px);
+  background-color: rgba(255, 255, 255, 0.95);
+  /* Ensure it stays fixed at bottom */
+  position: fixed !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+}
+
+/* Smooth panel transitions */
+@media (prefers-reduced-motion: no-preference) {
+  .mobile-side-panel {
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+}
+
+/* Ensure proper stacking on mobile */
+@media (max-width: 768px) {
+  .mobile-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 40;
+  }
+
+  .mobile-panel {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 50;
+    max-height: 100vh;
+    overflow-y: auto;
+  }
+}
+
+/* Icon button styles */
+.btn-icon {
+  @apply p-2 rounded-lg transition-all duration-150 ease-out;
+  @apply hover:bg-gray-100 hover:shadow-md hover:-translate-y-0.5 hover:scale-110;
+  @apply active:bg-gray-200 active:shadow-sm active:translate-y-0 active:scale-105;
+  @apply focus-visible:ring-2 focus-visible:ring-gray-500 focus-visible:ring-offset-2;
+  @apply focus:outline-none;
+  transform-origin: center;
+}
+
+/* Enhanced input focus styles */
+input:focus,
+textarea:focus,
+select:focus {
+  @apply ring-2 ring-blue-500 ring-offset-2 border-blue-500 shadow-lg;
+  outline: none;
+  transition: all 0.15s ease-out;
+}
+
+input,
+textarea,
+select {
+  @apply transition-all duration-150 ease-out;
+}
+
+input:hover,
+textarea:hover,
+select:hover {
+  @apply border-gray-400 shadow-sm;
+}
+
+/* Remove webkit appearance for better control */
+button,
+input[type="button"],
+input[type="submit"],
+input[type="reset"] {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+}
+
+/* Loading animation */
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.animate-pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
 :root {
   --foreground-rgb: 0, 0, 0;
   --background-start-rgb: 249, 250, 251;
@@ -36,13 +306,48 @@ body {
   background: #a8a8a8;
 }
 
-/* Focus styles for accessibility */
-button:focus,
-input:focus,
-textarea:focus,
-select:focus {
+/* Enhanced focus styles for accessibility */
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
   outline: 2px solid #3b82f6;
   outline-offset: 2px;
+}
+
+/* Ripple effect for buttons */
+@keyframes ripple {
+  0% {
+    transform: scale(0);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(4);
+    opacity: 0;
+  }
+}
+
+.btn-ripple {
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-ripple::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.5);
+  transform: translate(-50%, -50%);
+  transition: width 0.6s, height 0.6s;
+}
+
+.btn-ripple:active::before {
+  width: 300px;
+  height: 300px;
 }
 
 /* Animation utilities */

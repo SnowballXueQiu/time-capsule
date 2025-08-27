@@ -50,7 +50,7 @@ export function TransactionLookup() {
         <button
           onClick={lookupTransaction}
           disabled={loading || !txDigest.trim()}
-          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+          className="btn-primary"
         >
           {loading ? "Looking up..." : "Lookup"}
         </button>
