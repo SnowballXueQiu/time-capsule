@@ -1,7 +1,7 @@
-import { SuiClient, getFullnodeUrl } from "@mysten/sui.js/client";
-import { TransactionBlock } from "@mysten/sui.js/transactions";
-import { Ed25519Keypair } from "@mysten/sui.js/keypairs/ed25519";
-import type { SuiObjectData } from "@mysten/sui.js/client";
+import { SuiClient, getFullnodeUrl } from "@mysten/sui/client";
+import { Transaction } from "@mysten/sui/transactions";
+import { Ed25519Keypair } from "@mysten/sui/keypairs/ed25519";
+import type { SuiObjectData } from "@mysten/sui/client";
 import type {
   Capsule,
   CapsuleCreationResult,
@@ -129,20 +129,20 @@ export class CapsuleSDK {
       );
 
       // Build transaction
-      const tx = new TransactionBlock();
+      const tx = new Transaction();
       tx.moveCall({
         target: `${this.packageId}::capsule::create_time_capsule`,
         arguments: [
-          tx.pure(storageResult.cid),
-          tx.pure(Array.from(storageResult.contentHash)),
-          tx.pure(unlockTime),
+          tx.pure.string(storageResult.cid),
+          tx.pure.vector("u8", Array.from(storageResult.contentHash)),
+          tx.pure.u64(unlockTime),
         ],
       });
 
       // Execute transaction
-      const result = await this.client.signAndExecuteTransactionBlock({
+      const result = await this.client.signAndExecuteTransaction({
         signer: keypair,
-        transactionBlock: tx,
+        transaction: tx,
         options: {
           showEffects: true,
           showObjectChanges: true,
@@ -199,20 +199,20 @@ export class CapsuleSDK {
       );
 
       // Build transaction
-      const tx = new TransactionBlock();
+      const tx = new Transaction();
       tx.moveCall({
         target: `${this.packageId}::capsule::create_multisig_capsule`,
         arguments: [
-          tx.pure(storageResult.cid),
-          tx.pure(Array.from(storageResult.contentHash)),
-          tx.pure(threshold),
+          tx.pure.string(storageResult.cid),
+          tx.pure.vector("u8", Array.from(storageResult.contentHash)),
+          tx.pure.u64(threshold),
         ],
       });
 
       // Execute transaction
-      const result = await this.client.signAndExecuteTransactionBlock({
+      const result = await this.client.signAndExecuteTransaction({
         signer: keypair,
-        transactionBlock: tx,
+        transaction: tx,
         options: {
           showEffects: true,
           showObjectChanges: true,
@@ -269,20 +269,20 @@ export class CapsuleSDK {
       );
 
       // Build transaction
-      const tx = new TransactionBlock();
+      const tx = new Transaction();
       tx.moveCall({
         target: `${this.packageId}::capsule::create_paid_capsule`,
         arguments: [
-          tx.pure(storageResult.cid),
-          tx.pure(Array.from(storageResult.contentHash)),
-          tx.pure(price),
+          tx.pure.string(storageResult.cid),
+          tx.pure.vector("u8", Array.from(storageResult.contentHash)),
+          tx.pure.u64(price),
         ],
       });
 
       // Execute transaction
-      const result = await this.client.signAndExecuteTransactionBlock({
+      const result = await this.client.signAndExecuteTransaction({
         signer: keypair,
-        transactionBlock: tx,
+        transaction: tx,
         options: {
           showEffects: true,
           showObjectChanges: true,
@@ -614,7 +614,7 @@ export class CapsuleSDK {
       }
 
       // Build transaction
-      const tx = new TransactionBlock();
+      const tx = new Transaction();
 
       // Handle different unlock condition types
       switch (capsule.unlockCondition.type) {
@@ -657,9 +657,9 @@ export class CapsuleSDK {
       }
 
       // Execute transaction
-      const result = await this.client.signAndExecuteTransactionBlock({
+      const result = await this.client.signAndExecuteTransaction({
         signer: keypair,
-        transactionBlock: tx,
+        transaction: tx,
         options: {
           showEffects: true,
           showEvents: true,
@@ -708,16 +708,16 @@ export class CapsuleSDK {
 
     try {
       // Build transaction
-      const tx = new TransactionBlock();
+      const tx = new Transaction();
       tx.moveCall({
         target: `${this.packageId}::capsule::approve_capsule`,
         arguments: [tx.object(capsuleId)],
       });
 
       // Execute transaction
-      const result = await this.client.signAndExecuteTransactionBlock({
+      const result = await this.client.signAndExecuteTransaction({
         signer: keypair,
-        transactionBlock: tx,
+        transaction: tx,
         options: {
           showEffects: true,
           showEvents: true,
@@ -881,9 +881,7 @@ export class CapsuleSDK {
   /**
    * Create approval transaction (for use with wallet signing)
    */
-  async createApprovalTransaction(
-    capsuleId: string
-  ): Promise<TransactionBlock> {
+  async createApprovalTransaction(capsuleId: string): Promise<Transaction> {
     this.ensureInitialized();
 
     try {
@@ -907,7 +905,7 @@ export class CapsuleSDK {
       }
 
       // Build transaction
-      const tx = new TransactionBlock();
+      const tx = new Transaction();
       tx.moveCall({
         target: `${this.packageId}::capsule::approve_capsule`,
         arguments: [tx.object(capsuleId)],
@@ -934,7 +932,7 @@ export class CapsuleSDK {
   async createUnlockTransaction(
     capsuleId: string,
     payment?: number
-  ): Promise<TransactionBlock> {
+  ): Promise<Transaction> {
     this.ensureInitialized();
 
     try {
@@ -959,7 +957,7 @@ export class CapsuleSDK {
       }
 
       // Build transaction
-      const tx = new TransactionBlock();
+      const tx = new Transaction();
 
       // Handle different unlock condition types
       switch (capsule.unlockCondition.type) {

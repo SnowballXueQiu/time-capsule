@@ -1,132 +1,138 @@
 #!/usr/bin/env node
 
+const { execSync } = require("child_process");
 const fs = require("fs");
 const path = require("path");
-const { execSync } = require("child_process");
 
-const PLATFORM = process.platform;
-const suiBinary = path.join(
-  __dirname,
-  "..",
-  "bin",
-  PLATFORM === "win32" ? "sui.exe" : "sui"
-);
-const contractDir = path.join(__dirname, "..", "contracts", "time_capsule");
-const envPath = path.join(__dirname, "..", "apps", "web", ".env.local");
+console.log("🚀 Deploying Time Capsule smart contract to Sui testnet...");
 
-async function deployContract() {
-  console.log("🚀 Deploying Time Capsule contract...");
-
-  // Check if Sui CLI exists
-  if (!fs.existsSync(suiBinary)) {
-    console.error("❌ Sui CLI not found. Please run: pnpm setup:sui");
+try {
+  // Check if sui CLI is available
+  try {
+    execSync("sui --version", { stdio: "pipe" });
+  } catch (error) {
+    console.error("❌ Sui CLI not found. Please install Sui CLI first.");
+    console.log(
+      "📖 Installation guide: https://docs.sui.io/guides/developer/getting-started/sui-install"
+    );
     process.exit(1);
   }
 
-  // Check if contract directory exists
-  if (!fs.existsSync(contractDir)) {
-    console.error("❌ Contract directory not found:", contractDir);
+  // Check if we have a Sui client configuration
+  try {
+    const clientConfig = execSync("sui client active-env", {
+      encoding: "utf8",
+    });
+    console.log(`📡 Active environment: ${clientConfig.trim()}`);
+  } catch (error) {
+    console.error("❌ No active Sui client environment found.");
+    console.log(
+      "💡 Run: sui client new-env --alias testnet --rpc https://fullnode.testnet.sui.io:443"
+    );
+    console.log("💡 Then: sui client switch --env testnet");
     process.exit(1);
   }
+
+  // Check if we have an active address
+  try {
+    const activeAddress = execSync("sui client active-address", {
+      encoding: "utf8",
+    });
+    console.log(`👤 Active address: ${activeAddress.trim()}`);
+  } catch (error) {
+    console.error("❌ No active address found.");
+    console.log("💡 Run: sui client new-address ed25519");
+    console.log("💡 Then: sui client switch --address <your-address>");
+    process.exit(1);
+  }
+
+  // Check balance
+  try {
+    const balance = execSync("sui client balance", { encoding: "utf8" });
+    console.log("💰 Current balance:");
+    console.log(balance);
+
+    // Check if we have enough SUI for deployment
+    const suiMatch = balance.match(/(\d+(?:\.\d+)?)\s+SUI/);
+    if (!suiMatch || parseFloat(suiMatch[1]) < 0.1) {
+      console.warn(
+        "⚠️  Low SUI balance. You may need more SUI for deployment."
+      );
+      console.log(
+        "💡 Get testnet SUI from: https://discord.com/channels/916379725201563759/971488439931392130"
+      );
+    }
+  } catch (error) {
+    console.warn("⚠️  Could not check balance");
+  }
+
+  // Build and deploy the contract
+  console.log("🔨 Building contract...");
+  const contractDir = path.join(__dirname, "..", "contracts");
+
+  // Change to contract directory and build
+  process.chdir(contractDir);
 
   try {
-    // Change to contract directory
-    process.chdir(contractDir);
-
-    // Build the contract first
-    console.log("🔨 Building contract...");
-    execSync(`"${suiBinary}" move build`, { stdio: "inherit" });
-
-    // Deploy the contract
-    console.log("📦 Publishing contract to devnet...");
-    const deployOutput = execSync(
-      `"${suiBinary}" client publish --gas-budget 100000000 --json`,
-      {
-        encoding: "utf8",
-        stdio: ["inherit", "pipe", "inherit"],
-      }
-    );
-
-    // Parse the deployment result
-    const deployResult = JSON.parse(deployOutput);
-
-    if (deployResult.objectChanges) {
-      // Find the package object
-      const packageObject = deployResult.objectChanges.find(
-        (change) => change.type === "published"
-      );
-
-      if (packageObject && packageObject.packageId) {
-        const packageId = packageObject.packageId;
-        console.log("✅ Contract deployed successfully!");
-        console.log("📋 Package ID:", packageId);
-
-        // Update .env.local file
-        if (fs.existsSync(envPath)) {
-          let envContent = fs.readFileSync(envPath, "utf8");
-
-          // Replace the package ID
-          if (envContent.includes("NEXT_PUBLIC_PACKAGE_ID=")) {
-            envContent = envContent.replace(
-              /NEXT_PUBLIC_PACKAGE_ID=.*/,
-              `NEXT_PUBLIC_PACKAGE_ID=${packageId}`
-            );
-          } else {
-            envContent += `\nNEXT_PUBLIC_PACKAGE_ID=${packageId}\n`;
-          }
-
-          fs.writeFileSync(envPath, envContent);
-          console.log("✅ Updated .env.local with new Package ID");
-        }
-
-        // Also update the template
-        const templatePath = path.join(
-          __dirname,
-          "..",
-          "apps",
-          "web",
-          ".env.template"
-        );
-        if (fs.existsSync(templatePath)) {
-          let templateContent = fs.readFileSync(templatePath, "utf8");
-          templateContent = templateContent.replace(
-            /NEXT_PUBLIC_PACKAGE_ID=.*/,
-            `NEXT_PUBLIC_PACKAGE_ID=${packageId}`
-          );
-          fs.writeFileSync(templatePath, templateContent);
-          console.log("✅ Updated .env.template with new Package ID");
-        }
-
-        console.log("");
-        console.log(
-          "🎉 Deployment complete! You can now use the Time Capsule dApp."
-        );
-        console.log("");
-
-        return packageId;
-      }
-    }
-
-    throw new Error("Failed to extract package ID from deployment result");
+    execSync("sui move build", { stdio: "inherit" });
+    console.log("✅ Contract built successfully");
   } catch (error) {
-    console.error("❌ Deployment failed:", error.message);
-
-    if (error.message.includes("Insufficient gas")) {
-      console.log("💡 Try increasing the gas budget or check your SUI balance");
-    } else if (error.message.includes("No such file or directory")) {
-      console.log("💡 Make sure Sui CLI is properly installed");
-    } else if (error.message.includes("Connection refused")) {
-      console.log(
-        "💡 Make sure you are connected to the internet and devnet is accessible"
-      );
-    }
-
+    console.error("❌ Contract build failed");
     process.exit(1);
   }
-}
 
-if (require.main === module) {
-  deployContract();
-}
+  // Deploy the contract
+  console.log("📦 Deploying contract to testnet...");
 
-module.exports = { deployContract };
+  try {
+    const deployOutput = execSync("sui client publish --gas-budget 100000000", {
+      encoding: "utf8",
+      stdio: "pipe",
+    });
+
+    console.log("✅ Contract deployed successfully!");
+    console.log("\n📋 Deployment details:");
+    console.log(deployOutput);
+
+    // Extract package ID from deployment output
+    const packageIdMatch = deployOutput.match(/Package ID: (0x[a-fA-F0-9]+)/);
+    if (packageIdMatch) {
+      const packageId = packageIdMatch[1];
+      console.log(`\n🎯 Package ID: ${packageId}`);
+
+      // Save package ID to environment file
+      const envPath = path.join(__dirname, "..", "apps", "web", ".env.local");
+      let envContent = "";
+
+      if (fs.existsSync(envPath)) {
+        envContent = fs.readFileSync(envPath, "utf8");
+      }
+
+      // Update or add package ID
+      if (envContent.includes("NEXT_PUBLIC_PACKAGE_ID=")) {
+        envContent = envContent.replace(
+          /NEXT_PUBLIC_PACKAGE_ID=.*/,
+          `NEXT_PUBLIC_PACKAGE_ID=${packageId}`
+        );
+      } else {
+        envContent += `\nNEXT_PUBLIC_PACKAGE_ID=${packageId}\n`;
+      }
+
+      fs.writeFileSync(envPath, envContent);
+      console.log(`✅ Package ID saved to ${envPath}`);
+    }
+  } catch (error) {
+    console.error("❌ Contract deployment failed");
+    console.error(error.message);
+    process.exit(1);
+  }
+
+  console.log("\n🎉 Deployment completed successfully!");
+  console.log("\n📝 Next steps:");
+  console.log("1. Update your frontend to use the new package ID");
+  console.log("2. Test the contract functions");
+  console.log("3. Share your time capsules!");
+} catch (error) {
+  console.error("❌ Deployment failed:", error.message);
+  process.exit(1);
+}

@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { WalletConnection } from "./WalletConnection";
 
 export function Header() {
   return (
@@ -33,7 +32,9 @@ export function Header() {
               </Link>
             </nav>
           </div>
-          <WalletConnection />
+          <div className="text-sm text-gray-500">
+            Connect wallet on each page
+          </div>
         </div>
       </div>
     </header>

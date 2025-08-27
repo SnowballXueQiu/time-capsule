@@ -41,11 +41,13 @@ export default [
         file: "dist/index.js",
         format: "cjs",
         sourcemap: true,
+        inlineDynamicImports: true, // Inline dynamic imports to avoid multiple chunks
       },
       {
         file: "dist/index.esm.js",
         format: "es",
         sourcemap: true,
+        inlineDynamicImports: true, // Inline dynamic imports to avoid multiple chunks
       },
     ],
     plugins: [

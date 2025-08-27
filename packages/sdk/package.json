@@ -21,7 +21,7 @@
     "clean": "rimraf dist"
   },
   "dependencies": {
-    "@mysten/sui.js": "^0.54.1",
+    "@mysten/sui": "^1.0.0",
     "@time-capsule/types": "workspace:*",
     "multiformats": "^12.1.3"
   },

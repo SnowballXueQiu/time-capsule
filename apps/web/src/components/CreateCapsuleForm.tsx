@@ -3,8 +3,9 @@
 import { useState, useCallback } from "react";
 import {
   useCurrentAccount,
-  useSignAndExecuteTransactionBlock,
+  useSignAndExecuteTransaction,
 } from "@mysten/dapp-kit";
+import { Transaction } from "@mysten/sui/transactions";
 import { ContentUpload } from "./create/ContentUpload";
 import { UnlockConditionSelector } from "./create/UnlockConditionSelector";
 import { CreationProgress } from "./create/CreationProgress";
@@ -24,8 +25,7 @@ interface CreationStep {
 
 export function CreateCapsuleForm() {
   const currentAccount = useCurrentAccount();
-  const { mutate: signAndExecuteTransactionBlock } =
-    useSignAndExecuteTransactionBlock();
+  const { mutate: signAndExecuteTransaction } = useSignAndExecuteTransaction();
 
   const [step, setStep] = useState<
     "content" | "conditions" | "creating" | "success"
@@ -81,7 +81,7 @@ export function CreateCapsuleForm() {
 
         // Initialize SDK
         const sdk = new CapsuleSDK({
-          network: "devnet",
+          network: "testnet",
           packageId: process.env.NEXT_PUBLIC_PACKAGE_ID || "0x0",
         });
 
@@ -129,6 +129,17 @@ export function CreateCapsuleForm() {
           "application/octet-stream"
         );
 
+        console.log("Storage result:", storageResult);
+
+        // Validate storage result
+        if (
+          !storageResult.cid ||
+          !storageResult.contentHash ||
+          !storageResult.encryptionKey
+        ) {
+          throw new Error("Invalid storage result from IPFS upload");
+        }
+
         setCreationSteps((prev) =>
           prev.map((s) =>
             s.id === "upload"
@@ -146,12 +157,23 @@ export function CreateCapsuleForm() {
           )
         );
 
-        // Import TransactionBlock from sui.js
-        const { TransactionBlock } = await import(
-          "@mysten/sui.js/transactions"
-        );
+        // Create transaction using the imported Transaction class
+        const tx = new Transaction();
 
-        const tx = new TransactionBlock();
+        console.log("Creating transaction with:");
+        console.log("- Package ID:", process.env.NEXT_PUBLIC_PACKAGE_ID);
+        console.log("- Storage result:", storageResult);
+        console.log("- Condition:", condition);
+
+        // Validate package ID
+        if (
+          !process.env.NEXT_PUBLIC_PACKAGE_ID ||
+          process.env.NEXT_PUBLIC_PACKAGE_ID === "0x0"
+        ) {
+          throw new Error(
+            "Invalid package ID. Please deploy the contract first."
+          );
+        }
 
         switch (condition.type) {
           case "time":
@@ -160,12 +182,24 @@ export function CreateCapsuleForm() {
                 "Unlock time is required for time-based capsules"
               );
             }
+
+            const cidBytes = Array.from(
+              new TextEncoder().encode(storageResult.cid)
+            );
+            const hashBytes = Array.from(storageResult.contentHash);
+
+            console.log("Transaction arguments:");
+            console.log("- CID bytes:", cidBytes);
+            console.log("- Hash bytes:", hashBytes);
+            console.log("- Unlock time:", condition.unlockTime);
+
             tx.moveCall({
               target: `${process.env.NEXT_PUBLIC_PACKAGE_ID}::capsule::create_time_capsule`,
               arguments: [
-                tx.pure(storageResult.cid),
-                tx.pure(Array.from(storageResult.contentHash)),
-                tx.pure(condition.unlockTime),
+                tx.pure.vector("u8", cidBytes),
+                tx.pure.vector("u8", hashBytes),
+                tx.pure.u64(condition.unlockTime),
+                tx.object("0x6"), // Clock object
               ],
             });
             break;
@@ -174,12 +208,24 @@ export function CreateCapsuleForm() {
             if (!condition.threshold) {
               throw new Error("Threshold is required for multisig capsules");
             }
+
+            const cidBytesMultisig = Array.from(
+              new TextEncoder().encode(storageResult.cid)
+            );
+            const hashBytesMultisig = Array.from(storageResult.contentHash);
+
+            console.log("Multisig transaction arguments:");
+            console.log("- CID bytes:", cidBytesMultisig);
+            console.log("- Hash bytes:", hashBytesMultisig);
+            console.log("- Threshold:", condition.threshold);
+
             tx.moveCall({
               target: `${process.env.NEXT_PUBLIC_PACKAGE_ID}::capsule::create_multisig_capsule`,
               arguments: [
-                tx.pure(storageResult.cid),
-                tx.pure(Array.from(storageResult.contentHash)),
-                tx.pure(condition.threshold),
+                tx.pure.vector("u8", cidBytesMultisig),
+                tx.pure.vector("u8", hashBytesMultisig),
+                tx.pure.u64(condition.threshold),
+                tx.object("0x6"), // Clock object
               ],
             });
             break;
@@ -188,12 +234,25 @@ export function CreateCapsuleForm() {
             if (!condition.price) {
               throw new Error("Price is required for paid capsules");
             }
+
+            const cidBytesPayment = Array.from(
+              new TextEncoder().encode(storageResult.cid)
+            );
+            const hashBytesPayment = Array.from(storageResult.contentHash);
+            const priceInMist = condition.price * 1_000_000_000; // Convert SUI to MIST
+
+            console.log("Payment transaction arguments:");
+            console.log("- CID bytes:", cidBytesPayment);
+            console.log("- Hash bytes:", hashBytesPayment);
+            console.log("- Price in MIST:", priceInMist);
+
             tx.moveCall({
-              target: `${process.env.NEXT_PUBLIC_PACKAGE_ID}::capsule::create_paid_capsule`,
+              target: `${process.env.NEXT_PUBLIC_PACKAGE_ID}::capsule::create_payment_capsule`,
               arguments: [
-                tx.pure(storageResult.cid),
-                tx.pure(Array.from(storageResult.contentHash)),
-                tx.pure(condition.price * 1_000_000_000), // Convert SUI to MIST
+                tx.pure.vector("u8", cidBytesPayment),
+                tx.pure.vector("u8", hashBytesPayment),
+                tx.pure.u64(priceInMist),
+                tx.object("0x6"), // Clock object
               ],
             });
             break;
@@ -214,44 +273,187 @@ export function CreateCapsuleForm() {
         );
 
         // Use wallet to sign and execute transaction
+        console.log("About to sign and execute transaction...");
+        console.log("Transaction object:", tx);
+
         const txResult = await new Promise<any>((resolve, reject) => {
-          signAndExecuteTransactionBlock(
-            {
-              transactionBlock: tx,
-              options: {
-                showEffects: true,
-                showObjectChanges: true,
+          const timeout = setTimeout(() => {
+            reject(new Error("Transaction timeout after 60 seconds"));
+          }, 60000);
+
+          try {
+            signAndExecuteTransaction(
+              {
+                transaction: tx,
+                options: {
+                  showEffects: true,
+                  showEvents: true,
+                  showObjectChanges: true,
+                },
               },
-            },
-            {
-              onSuccess: resolve,
-              onError: reject,
-            }
-          );
+              {
+                onSuccess: (result) => {
+                  clearTimeout(timeout);
+                  console.log("Transaction success:", result);
+                  resolve(result);
+                },
+                onError: (error) => {
+                  clearTimeout(timeout);
+                  console.error("Transaction error details:", {
+                    error,
+                    message: error?.message,
+                    cause: error?.cause,
+                    stack: error?.stack,
+                  });
+                  reject(error);
+                },
+              }
+            );
+          } catch (error) {
+            clearTimeout(timeout);
+            console.error("signAndExecuteTransaction call failed:", error);
+            reject(error);
+          }
         });
 
-        if (txResult.effects?.status?.status !== "success") {
-          throw new Error(
-            `Transaction failed: ${txResult.effects?.status?.error}`
-          );
+        console.log(
+          "Full transaction result:",
+          JSON.stringify(txResult, null, 2)
+        );
+
+        // Check if transaction was successful
+        if (!txResult) {
+          throw new Error("Transaction failed: No result received from wallet");
         }
 
-        // Extract capsule ID from object changes
+        if (!txResult.digest) {
+          console.error("Transaction result without digest:", txResult);
+          throw new Error("Transaction failed: No transaction digest received");
+        }
+
+        // Check transaction status - the effects are base64 encoded, we need to check differently
+        // If we have a digest and no obvious error, the transaction likely succeeded
+        let transactionSucceeded = false;
+
+        if (txResult.effects) {
+          // Try to parse the effects if they're a string (base64)
+          if (typeof txResult.effects === "string") {
+            console.log(
+              "Effects are base64 encoded, assuming success if we have digest"
+            );
+            transactionSucceeded = !!txResult.digest;
+          } else if (txResult.effects.status) {
+            // Effects are already parsed
+            const status =
+              txResult.effects.status.status || txResult.effects.status;
+            transactionSucceeded = status === "success";
+            if (!transactionSucceeded) {
+              const errorMsg =
+                txResult.effects.status.error ||
+                JSON.stringify(txResult.effects.status) ||
+                "Unknown transaction error";
+              console.error("Transaction failed with status:", status);
+              console.error("Full effects:", txResult.effects);
+              throw new Error(`Transaction failed: ${errorMsg}`);
+            }
+          } else {
+            // No clear status, check if we have digest
+            transactionSucceeded = !!txResult.digest;
+          }
+        } else {
+          // No effects, check if we have digest
+          transactionSucceeded = !!txResult.digest;
+        }
+
+        if (!transactionSucceeded) {
+          console.error("Transaction appears to have failed");
+          console.error("Full result:", txResult);
+          throw new Error("Transaction failed: No success confirmation");
+        }
+
+        // Extract capsule ID from object changes or query the transaction
         let capsuleId = "";
         const changes = txResult.objectChanges || [];
+
+        console.log("Object changes:", changes);
+        console.log("Transaction digest:", txResult.digest);
+
+        // Try to extract from object changes first
         for (const change of changes) {
-          if (
-            change.type === "created" &&
-            change.objectType?.includes("TimeCapsule")
-          ) {
-            capsuleId = change.objectId;
-            break;
+          if (change.type === "created") {
+            console.log("Created object:", change);
+            // Look for TimeCapsule objects or shared objects (time capsules are shared)
+            if (
+              change.objectType?.includes("TimeCapsule") ||
+              change.objectType?.includes("capsule::TimeCapsule") ||
+              (change.owner === "Shared" &&
+                change.objectType?.includes("capsule"))
+            ) {
+              capsuleId = change.objectId;
+              break;
+            }
+          }
+        }
+
+        // If we still can't find it, try to get any shared object created
+        if (!capsuleId) {
+          for (const change of changes) {
+            if (change.type === "created" && change.owner === "Shared") {
+              capsuleId = change.objectId;
+              console.log("Using shared object as capsule ID:", capsuleId);
+              break;
+            }
+          }
+        }
+
+        // If still no capsule ID, try to query the transaction to get the created objects
+        if (!capsuleId && txResult.digest) {
+          try {
+            console.log(
+              "Attempting to query transaction for created objects..."
+            );
+            // Import SuiClient dynamically
+            const { SuiClient, getFullnodeUrl } = await import(
+              "@mysten/sui/client"
+            );
+            const client = new SuiClient({ url: getFullnodeUrl("testnet") });
+
+            const txDetails = await client.getTransactionBlock({
+              digest: txResult.digest,
+              options: {
+                showObjectChanges: true,
+                showEffects: true,
+              },
+            });
+
+            console.log("Transaction details from query:", txDetails);
+
+            if (txDetails.objectChanges) {
+              for (const change of txDetails.objectChanges) {
+                if (
+                  change.type === "created" &&
+                  (change.objectType?.includes("TimeCapsule") ||
+                    change.owner === "Shared")
+                ) {
+                  capsuleId = change.objectId;
+                  console.log(
+                    "Found capsule ID from transaction query:",
+                    capsuleId
+                  );
+                  break;
+                }
+              }
+            }
+          } catch (queryError) {
+            console.warn("Failed to query transaction details:", queryError);
           }
         }
 
         if (!capsuleId) {
+          console.error("Available object changes:", changes);
+          console.error("Full transaction result:", txResult);
           throw new Error(
-            "Could not extract capsule ID from transaction result"
+            "Could not extract capsule ID from transaction result. The transaction may have succeeded but we cannot determine the capsule ID. Check console for details."
           );
         }
 

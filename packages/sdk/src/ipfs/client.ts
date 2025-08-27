@@ -59,14 +59,20 @@ export class IPFSClient {
       try {
         // Create form data for Pinata API
         const formData = new FormData();
-        // Create a proper ArrayBuffer from Uint8Array
-        const buffer = new ArrayBuffer(content.length);
-        const view = new Uint8Array(buffer);
-        view.set(content);
-        const blob = new Blob([buffer], {
+
+        // Ensure proper binary data handling
+        // Create a proper Blob with correct MIME type for encrypted content
+        const arrayBuffer = content.buffer.slice(
+          content.byteOffset,
+          content.byteOffset + content.byteLength
+        ) as ArrayBuffer;
+        const blob = new Blob([arrayBuffer], {
           type: "application/octet-stream",
         });
-        formData.append("file", blob);
+
+        // Use a descriptive filename for the encrypted content
+        const filename = `encrypted-content-${Date.now()}.bin`;
+        formData.append("file", blob, filename);
 
         // Add metadata for Pinata
         const metadata = JSON.stringify({

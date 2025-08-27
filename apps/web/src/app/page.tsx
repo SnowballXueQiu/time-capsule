@@ -1,9 +1,15 @@
 import { Layout } from "../components/Layout";
+import { WalletConnection } from "../components/WalletConnection";
 import Link from "next/link";
 
 export default function Home() {
   return (
     <Layout>
+      {/* Wallet Connection Status */}
+      <div className="mb-8">
+        <WalletConnection />
+      </div>
+
       <div className="text-center mb-12">
         <h1 className="text-4xl font-bold text-gray-900 mb-4">
           Decentralized Time Capsule
