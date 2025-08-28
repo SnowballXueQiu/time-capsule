@@ -6,7 +6,6 @@ import {
   useSignAndExecuteTransaction,
 } from "@mysten/dapp-kit";
 import { Transaction } from "@mysten/sui/transactions";
-import { DebugInfo } from "./DebugInfo";
 
 interface CreateTimeCapsuleProps {
   onSuccess?: (result: any) => void;
@@ -32,7 +31,6 @@ export function CreateTimeCapsule({ onSuccess }: CreateTimeCapsuleProps) {
   const [unlockTime, setUnlockTime] = useState(defaultDateTime.time);
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [debugInfo, setDebugInfo] = useState<any>(null);
 
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
@@ -166,7 +164,6 @@ export function CreateTimeCapsule({ onSuccess }: CreateTimeCapsuleProps) {
         });
 
         console.log("Transaction successful:", txResult);
-        setDebugInfo(txResult);
 
         // Extract capsule ID from object changes
         let capsuleId = "";
@@ -234,7 +231,6 @@ export function CreateTimeCapsule({ onSuccess }: CreateTimeCapsuleProps) {
         setTextContent("");
         setUnlockDate("");
         setUnlockTime("");
-        setDebugInfo(null);
       } catch (err) {
         console.error("Error creating time capsule:", err);
         setError(
@@ -399,11 +395,6 @@ export function CreateTimeCapsule({ onSuccess }: CreateTimeCapsuleProps) {
           )}
         </button>
       </form>
-
-      {/* Debug Information */}
-      {debugInfo && (
-        <DebugInfo data={debugInfo} title="Transaction Debug Info" />
-      )}
     </div>
   );
 }

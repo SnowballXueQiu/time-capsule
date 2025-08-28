@@ -188,22 +188,6 @@ export function SimpleCapsuleList({ onUnlock }: CapsuleListProps) {
           <button onClick={loadCapsules} className="btn-secondary text-sm">
             Refresh
           </button>
-          <button
-            onClick={async () => {
-              console.log("Debug info:");
-              console.log("Current account:", currentAccount?.address);
-              console.log("Package ID:", process.env.NEXT_PUBLIC_PACKAGE_ID);
-
-              if (process.env.NEXT_PUBLIC_PACKAGE_ID === "0x0") {
-                alert(
-                  "Package ID is not set! Please deploy the contract first."
-                );
-              }
-            }}
-            className="btn-outline text-sm"
-          >
-            Debug
-          </button>
         </div>
       </div>
 

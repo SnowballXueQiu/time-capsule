@@ -6,7 +6,7 @@ import { Footer } from "../components/Footer";
 import { MobileTabBar } from "../components/MobileTabBar";
 import { CreateTimeCapsule } from "../components/CreateTimeCapsule";
 import { SimpleCapsuleList } from "../components/SimpleCapsuleList";
-import { TransactionLookup } from "../components/TransactionLookup";
+
 import { WalletConnection } from "../components/WalletConnection";
 import { MobileWalletInfo } from "../components/MobileWalletInfo";
 
@@ -151,7 +151,6 @@ export default function Home() {
             {activeTab === "list" && (
               <div className="space-y-8">
                 <SimpleCapsuleList onUnlock={handleUnlockCapsule} />
-                <TransactionLookup />
               </div>
             )}
 
