@@ -239,90 +239,131 @@ export function SimpleCapsuleList({ onUnlock }: CapsuleListProps) {
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-md p-8">
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-semibold text-gray-900">
+    <div className="bg-white rounded-lg shadow-md p-4 md:p-8">
+      {/* Header - Mobile Optimized */}
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6 space-y-3 sm:space-y-0">
+        <h2 className="text-xl md:text-2xl font-semibold text-gray-900">
           My Time Capsules
         </h2>
-        <div className="flex space-x-2">
-          <button onClick={loadCapsules} className="btn-secondary text-sm">
-            Refresh
-          </button>
-        </div>
+        <button
+          onClick={loadCapsules}
+          className="btn-secondary text-sm w-full sm:w-auto"
+        >
+          🔄 Refresh
+        </button>
       </div>
 
       {capsules.length === 0 ? (
         <div className="text-center py-8">
-          <div className="text-gray-400 text-6xl mb-4">📦</div>
+          <div className="text-gray-400 text-4xl md:text-6xl mb-4">📦</div>
           <h3 className="text-lg font-medium text-gray-900 mb-2">
             No Time Capsules Yet
           </h3>
-          <p className="text-gray-600">
+          <p className="text-gray-600 text-sm md:text-base">
             Create your first time capsule to get started.
           </p>
         </div>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-3 md:space-y-4">
           {capsules.map((capsule) => (
             <div
               key={capsule.id}
-              className="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow"
+              className="border border-gray-200 rounded-lg p-4 md:p-6 hover:shadow-md transition-shadow"
             >
-              <div className="flex justify-between items-start">
-                <div className="flex-1">
-                  <div className="flex items-center space-x-2 mb-2">
-                    <div className="text-2xl">⏰</div>
-                    <h3 className="text-lg font-medium text-gray-900">
+              {/* Mobile-First Layout */}
+              <div className="space-y-3">
+                {/* Header Row */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <div className="text-xl md:text-2xl">⏰</div>
+                    <h3 className="text-base md:text-lg font-medium text-gray-900">
                       Time Capsule
                     </h3>
-                    {capsule.unlocked && (
-                      <span className="px-2 py-1 text-xs bg-green-100 text-green-800 rounded-full">
-                        Unlocked
-                      </span>
-                    )}
                   </div>
+                  {capsule.unlocked && (
+                    <span className="px-2 py-1 text-xs bg-green-100 text-green-800 rounded-full">
+                      ✓ Unlocked
+                    </span>
+                  )}
+                </div>
 
-                  <div className="space-y-2 text-sm text-gray-600">
-                    <p>
-                      <span className="font-medium">Created:</span>{" "}
-                      {new Date(capsule.createdAt).toLocaleString()}
-                    </p>
-                    <p>
-                      <span className="font-medium">Unlock Time:</span>{" "}
-                      {new Date(capsule.unlockTime).toLocaleString()}
-                    </p>
-                    <p>
-                      <span className="font-medium">Status:</span>{" "}
-                      {capsule.unlocked ? (
-                        <span className="text-green-600">Unlocked</span>
+                {/* Status Row - Prominent on Mobile */}
+                <div className="bg-gray-50 rounded-lg p-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-xs text-gray-500 uppercase tracking-wide font-medium">
+                        Status
+                      </div>
+                      <div className="mt-1">
+                        {capsule.unlocked ? (
+                          <span className="text-green-600 font-medium">
+                            🔓 Ready to View
+                          </span>
+                        ) : Date.now() >= capsule.unlockTime ? (
+                          <span className="text-blue-600 font-medium">
+                            🔓 Ready to Unlock
+                          </span>
+                        ) : (
+                          <span className="text-orange-600 font-medium">
+                            🔒 {formatTimeRemaining(capsule.unlockTime)}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Action Button */}
+                    <div className="ml-3">
+                      {capsule.unlocked || Date.now() >= capsule.unlockTime ? (
+                        <button
+                          onClick={() => onUnlock?.(capsule)}
+                          className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                        >
+                          View
+                        </button>
                       ) : (
-                        <span className="text-orange-600">
-                          {formatTimeRemaining(capsule.unlockTime)}
-                        </span>
+                        <div className="px-4 py-2 bg-gray-200 text-gray-500 rounded-lg text-sm font-medium">
+                          Locked
+                        </div>
                       )}
-                    </p>
-                    <p>
-                      <span className="font-medium">IPFS CID:</span>{" "}
-                      <code className="text-xs bg-gray-100 px-1 py-0.5 rounded">
-                        {capsule.cid}
-                      </code>
-                    </p>
+                    </div>
                   </div>
                 </div>
 
-                <div className="ml-4">
-                  {capsule.unlocked || Date.now() >= capsule.unlockTime ? (
-                    <button
-                      onClick={() => onUnlock?.(capsule)}
-                      className="btn-success"
-                    >
-                      View Content
-                    </button>
-                  ) : (
-                    <div className="px-4 py-2 bg-gray-100 text-gray-500 rounded cursor-not-allowed">
-                      Locked
+                {/* Details - Horizontal Layout */}
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div>
+                    <div className="text-xs text-gray-500 uppercase tracking-wide font-medium">
+                      Created
                     </div>
-                  )}
+                    <div className="mt-1 text-gray-900">
+                      {new Date(capsule.createdAt).toLocaleDateString()}
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      {new Date(capsule.createdAt).toLocaleTimeString()}
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="text-xs text-gray-500 uppercase tracking-wide font-medium">
+                      Unlock Time
+                    </div>
+                    <div className="mt-1 text-gray-900">
+                      {new Date(capsule.unlockTime).toLocaleDateString()}
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      {new Date(capsule.unlockTime).toLocaleTimeString()}
+                    </div>
+                  </div>
+                </div>
+
+                {/* IPFS CID - Hidden on small mobile, shown on larger screens */}
+                <div className="hidden sm:block">
+                  <div className="text-xs text-gray-500 uppercase tracking-wide font-medium mb-1">
+                    IPFS CID
+                  </div>
+                  <code className="text-xs bg-gray-100 px-2 py-1 rounded block break-all">
+                    {capsule.cid}
+                  </code>
                 </div>
               </div>
             </div>

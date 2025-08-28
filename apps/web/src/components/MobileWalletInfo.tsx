@@ -56,8 +56,7 @@ export function MobileWalletInfo() {
 
           {/* Combined Address and Balance Display */}
           <div className="font-mono text-lg font-bold text-gray-900 break-all">
-            {address.slice(0, 6)}...{address.slice(-6)}.{balance || "0.0000"}{" "}
-            SUI↻
+            {balance || "0.0000"} SUI
           </div>
 
           {/* Full Address (smaller, for reference) */}
