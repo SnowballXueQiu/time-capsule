@@ -414,14 +414,16 @@ export class CapsuleSDK {
       owner: fields.owner,
       cid: fields.cid,
       contentHash: Array.isArray(fields.content_hash)
-        ? fields.content_hash.join("")
-        : fields.content_hash || "",
+        ? fields.content_hash
+        : fields.content_hash || [],
       unlockCondition,
       createdAt,
       unlocked: fields.unlocked || false,
       // 加密元数据
-      encryptionNonce: fields.nonce || [],
-      keyDerivationSalt: fields.key_derivation_salt || [],
+      encryptionNonce: Array.isArray(fields.nonce) ? fields.nonce : [],
+      keyDerivationSalt: Array.isArray(fields.key_derivation_salt)
+        ? fields.key_derivation_salt
+        : [],
     };
   }
 }

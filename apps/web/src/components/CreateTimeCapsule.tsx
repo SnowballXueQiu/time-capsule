@@ -95,13 +95,19 @@ export function CreateTimeCapsule({ onSuccess }: CreateTimeCapsuleProps) {
         const formData = new FormData();
         formData.append("file", encryptedBlob, "encrypted-content.bin");
 
-        // Add metadata
+        // Add metadata including encryption parameters
         const metadata = JSON.stringify({
           name: `time-capsule-encrypted-${Date.now()}`,
           keyvalues: {
             type: "time-capsule-encrypted-content",
             timestamp: Date.now().toString(),
             encrypted: "true",
+            tempCapsuleId: tempCapsuleId,
+            walletAddress: currentAccount.address,
+            unlockTime: unlockTimestamp.toString(),
+            nonce: Array.from(encryptionResult.nonce).join(","),
+            salt: Array.from(encryptionResult.keyDerivationSalt).join(","),
+            contentHash: Array.from(encryptionResult.contentHash).join(","),
           },
         });
         formData.append("pinataMetadata", metadata);

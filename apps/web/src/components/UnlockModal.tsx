@@ -36,6 +36,13 @@ export function UnlockModal({
     "check"
   );
 
+  // Auto-check conditions when modal opens
+  React.useEffect(() => {
+    if (isOpen) {
+      checkUnlockConditions();
+    }
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   const checkUnlockConditions = async () => {
@@ -46,6 +53,13 @@ export function UnlockModal({
 
     try {
       setError(null);
+
+      // If capsule is already unlocked, skip to decrypt step
+      if (capsule.unlocked) {
+        console.log("胶囊已解锁，直接进入解密步骤");
+        setStep("decrypt");
+        return;
+      }
 
       // Check if time condition is met
       const now = Date.now();
@@ -152,13 +166,85 @@ export function UnlockModal({
 
       // 3. SDK实例已在上面获取
 
-      // 4. 从IPFS元数据或区块链获取解密参数
-      // 首先尝试从IPFS元数据获取
+      // 4. 从区块链获取解密参数
       let nonce: Uint8Array;
       let salt: Uint8Array;
 
+      console.log("胶囊数据详情:", {
+        id: capsuleData.id,
+        owner: capsuleData.owner,
+        cid: capsuleData.cid,
+        hasEncryptionNonce: !!capsuleData.encryptionNonce,
+        hasKeyDerivationSalt: !!capsuleData.keyDerivationSalt,
+        nonceLength: capsuleData.encryptionNonce?.length,
+        saltLength: capsuleData.keyDerivationSalt?.length,
+      });
+
+      // 从胶囊数据中获取加密参数
+      if (
+        capsuleData.encryptionNonce &&
+        capsuleData.keyDerivationSalt &&
+        capsuleData.encryptionNonce.length > 0 &&
+        capsuleData.keyDerivationSalt.length > 0
+      ) {
+        nonce = new Uint8Array(capsuleData.encryptionNonce);
+        salt = new Uint8Array(capsuleData.keyDerivationSalt);
+        console.log("✅ 从区块链获取到加密参数");
+        console.log(`   - 随机数长度: ${nonce.length} 字节`);
+        console.log(`   - 盐值长度: ${salt.length} 字节`);
+      } else {
+        console.warn("❌ 区块链中没有找到完整的加密参数");
+        console.log("尝试从IPFS元数据获取...");
+
+        try {
+          // 获取IPFS文件的元数据
+          const metadataResponse = await fetch(
+            `https://api.pinata.cloud/data/pinList?hashContains=${capsule.cid}`,
+            {
+              headers: {
+                Authorization: `Bearer ${process.env.NEXT_PUBLIC_PINATA_JWT}`,
+              },
+            }
+          );
+
+          if (metadataResponse.ok) {
+            const metadataResult = await metadataResponse.json();
+            const fileData = metadataResult.rows[0];
+
+            if (fileData && fileData.metadata && fileData.metadata.keyvalues) {
+              const keyvalues = fileData.metadata.keyvalues;
+
+              if (keyvalues.nonce && keyvalues.salt) {
+                nonce = new Uint8Array(keyvalues.nonce.split(",").map(Number));
+                salt = new Uint8Array(keyvalues.salt.split(",").map(Number));
+                console.log("从IPFS元数据获取到加密参数");
+              } else {
+                throw new Error("IPFS元数据中缺少加密参数");
+              }
+            } else {
+              throw new Error("无法获取IPFS元数据");
+            }
+          } else {
+            throw new Error("获取IPFS元数据失败");
+          }
+        } catch (metadataError) {
+          console.error("无法获取加密参数:", metadataError);
+          throw new Error("无法获取解密所需的加密参数。请确保胶囊数据完整。");
+        }
+      }
+
+      console.log("使用的解密参数:");
+      console.log("- 随机数长度:", nonce.length);
+      console.log("- 盐值长度:", salt.length);
+      console.log("- 钱包地址:", currentAccount.address);
+      console.log("- 胶囊ID:", capsule.id);
+      console.log("- 解锁时间:", capsule.unlockCondition.unlockTime);
+
+      // 5. 获取用于加密的原始ID
+      let encryptionCapsuleId = capsule.id; // 默认使用真实ID
+
+      // 尝试从IPFS元数据获取原始的tempCapsuleId
       try {
-        // 获取IPFS文件的元数据
         const metadataResponse = await fetch(
           `https://api.pinata.cloud/data/pinList?hashContains=${capsule.cid}`,
           {
@@ -174,48 +260,30 @@ export function UnlockModal({
 
           if (fileData && fileData.metadata && fileData.metadata.keyvalues) {
             const keyvalues = fileData.metadata.keyvalues;
-
-            if (keyvalues.nonce && keyvalues.salt) {
-              nonce = new Uint8Array(keyvalues.nonce.split(",").map(Number));
-              salt = new Uint8Array(keyvalues.salt.split(",").map(Number));
-              console.log("从IPFS元数据获取到加密参数");
-            } else {
-              throw new Error("IPFS元数据中缺少加密参数");
+            if (keyvalues.tempCapsuleId) {
+              encryptionCapsuleId = keyvalues.tempCapsuleId;
+              console.log(
+                "从IPFS元数据获取到原始tempCapsuleId:",
+                encryptionCapsuleId
+              );
+            } else if (keyvalues.capsuleId) {
+              encryptionCapsuleId = keyvalues.capsuleId;
+              console.log("从IPFS元数据获取到capsuleId:", encryptionCapsuleId);
             }
-          } else {
-            throw new Error("无法获取IPFS元数据");
           }
-        } else {
-          throw new Error("获取IPFS元数据失败");
         }
       } catch (metadataError) {
-        console.warn(
-          "从IPFS元数据获取加密参数失败，尝试从区块链获取:",
-          metadataError
-        );
-
-        // 如果从IPFS获取失败，尝试从区块链获取（需要智能合约支持）
-        // 这里使用临时的随机值作为后备方案
-        nonce = new Uint8Array(24);
-        salt = new Uint8Array(32);
-        crypto.getRandomValues(nonce);
-        crypto.getRandomValues(salt);
-        console.warn("使用临时随机值作为加密参数（这在生产环境中不会工作）");
+        console.warn("无法获取IPFS元数据，使用默认胶囊ID:", metadataError);
       }
 
-      console.log("使用的解密参数:");
-      console.log("- 随机数长度:", nonce.length);
-      console.log("- 盐值长度:", salt.length);
-      console.log("- 钱包地址:", currentAccount.address);
-      console.log("- 胶囊ID:", capsule.id);
-      console.log("- 解锁时间:", capsule.unlockCondition.unlockTime);
+      console.log("最终使用的解密胶囊ID:", encryptionCapsuleId);
 
-      // 5. 使用钱包基础密钥派生解密
+      // 6. 使用钱包基础密钥派生解密
       const decryptionResult = await sdk.decryptContentWithWallet(
         encryptedContent,
         nonce,
         currentAccount.address,
-        capsule.id,
+        encryptionCapsuleId,
         capsule.unlockCondition.unlockTime || 0,
         salt
       );
@@ -242,7 +310,8 @@ export function UnlockModal({
       });
 
       setStep("complete");
-      onSuccess();
+      // 不要立即调用 onSuccess()，让用户查看内容后再关闭
+      // onSuccess();
     } catch (err) {
       console.error("解密失败:", err);
       setError(err instanceof Error ? err.message : "解密内容失败");
@@ -503,12 +572,23 @@ export function UnlockModal({
                 </div>
               )}
 
-              <button
-                onClick={downloadContent}
-                className="mt-3 btn-secondary text-sm w-full"
-              >
-                Download Content
-              </button>
+              <div className="mt-3 flex gap-2">
+                <button
+                  onClick={downloadContent}
+                  className="flex-1 btn-secondary text-sm"
+                >
+                  Download Content
+                </button>
+                <button
+                  onClick={() => {
+                    onSuccess();
+                    onClose();
+                  }}
+                  className="flex-1 btn-primary text-sm"
+                >
+                  Close
+                </button>
+              </div>
             </div>
           </div>
         )}

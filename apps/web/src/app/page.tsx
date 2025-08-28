@@ -36,9 +36,8 @@ export default function Home() {
   };
 
   const handleUnlockCapsule = (capsule: any) => {
-    // Open IPFS content in new tab
-    const gatewayUrl = `${process.env.NEXT_PUBLIC_PINATA_GATEWAY}/ipfs/${capsule.cid}`;
-    window.open(gatewayUrl, "_blank");
+    // Navigate to capsule detail page for proper unlock/decrypt flow
+    window.location.href = `/capsule/${capsule.id}`;
   };
 
   return (

@@ -27,6 +27,20 @@ const nextConfig = {
 
     return config;
   },
+  // Add headers to serve WASM files with correct MIME type
+  async headers() {
+    return [
+      {
+        source: "/(.*)\\.wasm",
+        headers: [
+          {
+            key: "Content-Type",
+            value: "application/wasm",
+          },
+        ],
+      },
+    ];
+  },
 };
 
 module.exports = nextConfig;
