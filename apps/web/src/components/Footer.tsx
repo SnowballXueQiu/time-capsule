@@ -53,6 +53,17 @@ export function Footer() {
                 Sui Blockchain
               </a>
               <a
+                href="https://www.rust-lang.org"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center text-sm text-gray-600 hover:text-blue-600 transition-colors group"
+              >
+                <span className="mr-2 group-hover:scale-110 transition-transform">
+                  🦀
+                </span>
+                Rust WASM Crypto
+              </a>
+              <a
                 href="https://pinata.cloud"
                 target="_blank"
                 rel="noopener noreferrer"
@@ -84,17 +95,6 @@ export function Footer() {
                   ⚛️
                 </span>
                 React
-              </a>
-              <a
-                href="https://www.rust-lang.org"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center text-sm text-gray-600 hover:text-blue-600 transition-colors group"
-              >
-                <span className="mr-2 group-hover:scale-110 transition-transform">
-                  🦀
-                </span>
-                Rust WASM Crypto
               </a>
             </div>
           </div>
