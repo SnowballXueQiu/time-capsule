@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useCurrentAccount } from "@mysten/dapp-kit";
 import { getSDK } from "../../lib/sdk";
-import type { Capsule, ApprovalResult } from "@time-capsule/types";
+import type { Capsule, ApprovalResult } from "@time-capsule/sdk";
 import { Loading } from "../Loading";
 import { ProgressBar } from "./ProgressBar";
 
@@ -58,7 +58,7 @@ export function ApprovalModal({
       await new Promise((resolve) => setTimeout(resolve, 2000)); // Simulate network delay
 
       const currentApprovals =
-        (capsule.unlockCondition.approvals?.length || 0) + 1;
+        (capsule.unlockCondition.approvers?.length || 0) + 1;
 
       const result = {
         success: true,
@@ -80,10 +80,10 @@ export function ApprovalModal({
     return `${address.slice(0, 6)}...${address.slice(-4)}`;
   };
 
-  const currentApprovals = capsule.unlockCondition.approvals?.length || 0;
+  const currentApprovals = capsule.unlockCondition.approvers?.length || 0;
   const requiredApprovals = capsule.unlockCondition.threshold || 0;
   const hasUserApproved =
-    capsule.unlockCondition.approvals?.includes(
+    capsule.unlockCondition.approvers?.includes(
       currentAccount?.address || ""
     ) || false;
   const canApprove =
@@ -142,14 +142,14 @@ export function ApprovalModal({
             </div>
 
             {/* Current Approvers */}
-            {capsule.unlockCondition.approvals &&
-              capsule.unlockCondition.approvals.length > 0 && (
+            {capsule.unlockCondition.approvers &&
+              capsule.unlockCondition.approvers.length > 0 && (
                 <div>
                   <h3 className="font-medium text-gray-900 mb-2">
                     Current Approvers
                   </h3>
                   <div className="space-y-1 max-h-32 overflow-y-auto">
-                    {capsule.unlockCondition.approvals.map((address) => (
+                    {capsule.unlockCondition.approvers.map((address) => (
                       <div
                         key={address}
                         className="flex items-center space-x-2 text-sm"

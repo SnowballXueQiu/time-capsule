@@ -33,7 +33,7 @@ const nodeBuiltins = [
 ];
 
 export default [
-  // JavaScript build
+  // Main SDK build
   {
     input: "src/index.ts",
     output: [
@@ -41,20 +41,19 @@ export default [
         file: "dist/index.js",
         format: "cjs",
         sourcemap: true,
-        inlineDynamicImports: true, // Inline dynamic imports to avoid multiple chunks
+        inlineDynamicImports: true,
       },
       {
         file: "dist/index.esm.js",
         format: "es",
         sourcemap: true,
-        inlineDynamicImports: true, // Inline dynamic imports to avoid multiple chunks
+        inlineDynamicImports: true,
       },
     ],
     plugins: [
       nodeResolve({
         preferBuiltins: false,
         browser: true,
-        // Allow resolving workspace packages
         preferredBuiltins: false,
       }),
       commonjs({
@@ -67,13 +66,47 @@ export default [
       }),
     ],
     external: [
-      "@mysten/sui.js",
+      "@mysten/sui",
       ...nodeBuiltins,
-      // External dependencies that should not be bundled
       "multiformats",
+      "./encryption/wasm-loader",
     ],
   },
-  // Type definitions build
+  // WASM loader build
+  {
+    input: "src/encryption/wasm-loader.ts",
+    output: [
+      {
+        file: "dist/encryption/wasm-loader.js",
+        format: "cjs",
+        sourcemap: true,
+        inlineDynamicImports: true,
+      },
+      {
+        file: "dist/encryption/wasm-loader.esm.js",
+        format: "es",
+        sourcemap: true,
+        inlineDynamicImports: true,
+      },
+    ],
+    plugins: [
+      nodeResolve({
+        preferBuiltins: false,
+        browser: true,
+        preferredBuiltins: false,
+      }),
+      commonjs({
+        ignoreDynamicRequires: true,
+      }),
+      typescript({
+        tsconfig: "./tsconfig.json",
+        declaration: false,
+        outputToFilesystem: true,
+      }),
+    ],
+    external: [...nodeBuiltins],
+  },
+  // Type definitions
   {
     input: "src/index.ts",
     output: {
@@ -81,6 +114,20 @@ export default [
       format: "es",
     },
     plugins: [dts()],
-    external: ["@mysten/sui.js", ...nodeBuiltins, "multiformats"],
+    external: [
+      "@mysten/sui",
+      ...nodeBuiltins,
+      "multiformats",
+      "./encryption/wasm-loader",
+    ],
+  },
+  {
+    input: "src/encryption/wasm-loader.ts",
+    output: {
+      file: "dist/encryption/wasm-loader.d.ts",
+      format: "es",
+    },
+    plugins: [dts()],
+    external: [...nodeBuiltins],
   },
 ];

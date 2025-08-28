@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useCurrentAccount } from "@mysten/dapp-kit";
 import { getSDK } from "../lib/sdk";
-import type { Capsule } from "@time-capsule/types";
+import type { Capsule } from "@time-capsule/sdk";
 
 interface CapsuleWithStatus extends Capsule {
   status: {
@@ -60,7 +60,13 @@ export function useCapsuleUpdates(refreshInterval: number = 30000) {
         currentAccount.address
       );
 
-      setCapsules(result.capsules);
+      setCapsules(
+        result.capsulesWithStatus ||
+          result.capsules.map((capsule: Capsule) => ({
+            ...capsule,
+            status: sdk.getCapsuleStatus(capsule),
+          }))
+      );
     } catch (err) {
       console.error("Failed to load capsules:", err);
       setError(err instanceof Error ? err.message : "Failed to load capsules");

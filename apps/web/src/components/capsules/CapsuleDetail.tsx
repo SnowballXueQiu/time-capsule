@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useCurrentAccount } from "@mysten/dapp-kit";
 import { getSDK } from "../../lib/sdk";
-import type { Capsule } from "@time-capsule/types";
+import type { Capsule } from "@time-capsule/sdk";
 import { CapsuleStatusBadge } from "./CapsuleStatusBadge";
 import { CountdownTimer } from "./CountdownTimer";
 import { ProgressBar } from "./ProgressBar";
@@ -127,7 +127,7 @@ export function CapsuleDetail({
 
       case "multisig":
         const threshold = capsule.unlockCondition.threshold || 0;
-        const approvals = capsule.unlockCondition.approvals || [];
+        const approvals = capsule.unlockCondition.approvers || [];
         return (
           <div className="space-y-4">
             <div>
@@ -170,7 +170,7 @@ export function CapsuleDetail({
 
       case "payment":
         const price = capsule.unlockCondition.price || 0;
-        const paid = capsule.unlockCondition.paid || false;
+        const paid = false; // TODO: Get payment status from capsule status
         return (
           <div className="space-y-4">
             <div>
@@ -209,7 +209,7 @@ export function CapsuleDetail({
       capsule.unlockCondition.type === "multisig" &&
       !capsule.unlocked &&
       currentAccount?.address &&
-      !capsule.unlockCondition.approvals?.includes(currentAccount.address)
+      !capsule.unlockCondition.approvers?.includes(currentAccount.address)
     );
   };
 

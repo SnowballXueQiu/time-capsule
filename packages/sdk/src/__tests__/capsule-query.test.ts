@@ -1,11 +1,11 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { Ed25519Keypair } from "@mysten/sui.js/keypairs/ed25519";
+import { Ed25519Keypair } from "@mysten/sui/keypairs/ed25519";
 import { CapsuleSDK } from "../index.js";
 import { CapsuleError, CapsuleSDKError } from "@time-capsule/types";
 import type { Capsule } from "@time-capsule/types";
 
 // Mock the dependencies
-vi.mock("@mysten/sui.js/client");
+vi.mock("@mysten/sui/client");
 vi.mock("../encryption/index.js");
 vi.mock("../ipfs/index.js");
 

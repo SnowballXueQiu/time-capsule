@@ -57,17 +57,51 @@ export function CreateTimeCapsule({ onSuccess }: CreateTimeCapsuleProps) {
       setError(null);
 
       try {
-        // 1. Upload text content to IPFS via Pinata API
+        // 1. Calculate unlock timestamp first
+        const unlockDateTime = new Date(`${unlockDate}T${unlockTime}`);
+        const unlockTimestamp = unlockDateTime.getTime();
+
+        if (unlockTimestamp <= Date.now()) {
+          throw new Error("Unlock time must be in the future");
+        }
+
+        // 2. Generate temporary capsule ID for encryption
+        const tempCapsuleId = `temp-${Date.now()}-${Math.random()
+          .toString(36)
+          .substr(2, 9)}`;
+
+        // 3. Encrypt content using wallet-based encryption
+        const { getSDK } = await import("../lib/sdk");
+        const sdk = await getSDK();
+
+        const contentBytes = new TextEncoder().encode(textContent);
+        const encryptionResult = await sdk.encryptContentWithWallet(
+          contentBytes,
+          currentAccount.address,
+          tempCapsuleId,
+          unlockTimestamp
+        );
+
+        console.log("Content encrypted with wallet-based key");
+
+        // 4. Upload encrypted content to IPFS
+        const encryptedBlob = new Blob(
+          [encryptionResult.ciphertext as BlobPart],
+          {
+            type: "application/octet-stream",
+          }
+        );
+
         const formData = new FormData();
-        const blob = new Blob([textContent], { type: "text/plain" });
-        formData.append("file", blob, "message.txt");
+        formData.append("file", encryptedBlob, "encrypted-content.bin");
 
         // Add metadata
         const metadata = JSON.stringify({
-          name: `time-capsule-${Date.now()}`,
+          name: `time-capsule-encrypted-${Date.now()}`,
           keyvalues: {
-            type: "time-capsule-content",
+            type: "time-capsule-encrypted-content",
             timestamp: Date.now().toString(),
+            encrypted: "true",
           },
         });
         formData.append("pinataMetadata", metadata);
@@ -91,36 +125,30 @@ export function CreateTimeCapsule({ onSuccess }: CreateTimeCapsuleProps) {
         const uploadResult = await uploadResponse.json();
         const cid = uploadResult.IpfsHash;
 
-        console.log("Content uploaded to IPFS:", cid);
+        console.log("Encrypted content uploaded to IPFS:", cid);
 
-        // 2. Calculate unlock timestamp
-        const unlockDateTime = new Date(`${unlockDate}T${unlockTime}`);
-        const unlockTimestamp = unlockDateTime.getTime();
-
-        if (unlockTimestamp <= Date.now()) {
-          throw new Error("Unlock time must be in the future");
-        }
-
-        // 3. Create blockchain transaction
+        // 5. Create blockchain transaction with encryption metadata
         const tx = new Transaction();
 
-        // Convert CID and content hash to bytes
+        // Convert data to bytes for the contract
         const cidBytes = Array.from(new TextEncoder().encode(cid));
-        const contentBytes = new TextEncoder().encode(textContent);
-        const hashBuffer = await crypto.subtle.digest("SHA-256", contentBytes);
-        const hashBytes = Array.from(new Uint8Array(hashBuffer));
+        const contentHashBytes = Array.from(encryptionResult.contentHash);
+        const nonceBytes = Array.from(encryptionResult.nonce);
+        const saltBytes = Array.from(encryptionResult.keyDerivationSalt);
 
         tx.moveCall({
           target: `${process.env.NEXT_PUBLIC_PACKAGE_ID}::capsule::create_time_capsule`,
           arguments: [
             tx.pure.vector("u8", cidBytes),
-            tx.pure.vector("u8", hashBytes),
+            tx.pure.vector("u8", contentHashBytes),
+            tx.pure.vector("u8", nonceBytes),
+            tx.pure.vector("u8", saltBytes),
             tx.pure.u64(unlockTimestamp),
             tx.object("0x6"), // Clock object
           ],
         });
 
-        // 4. Sign and execute transaction
+        // 6. Sign and execute transaction
         const txResult = await new Promise<any>((resolve, reject) => {
           signAndExecuteTransaction(
             { transaction: tx },
@@ -186,6 +214,12 @@ export function CreateTimeCapsule({ onSuccess }: CreateTimeCapsuleProps) {
           transactionDigest: txResult.digest,
           cid: cid,
           unlockTime: unlockTimestamp,
+          encrypted: true,
+          encryptionMetadata: {
+            nonce: Array.from(encryptionResult.nonce),
+            salt: Array.from(encryptionResult.keyDerivationSalt),
+            contentHash: Array.from(encryptionResult.contentHash),
+          },
         };
 
         onSuccess?.(result);

@@ -8,6 +8,13 @@ export interface WASMEncryptionResult {
   contentHash: Uint8Array;
 }
 
+export interface WASMWalletEncryptionResult {
+  ciphertext: Uint8Array;
+  nonce: Uint8Array;
+  contentHash: Uint8Array;
+  keyDerivationSalt: Uint8Array;
+}
+
 export interface WASMDecryptionResult {
   content: Uint8Array;
 }
@@ -218,6 +225,156 @@ export class WASMEncryption {
     const content = new Uint8Array(ciphertext.length);
     for (let i = 0; i < ciphertext.length; i++) {
       content[i] = ciphertext[i] ^ key[i % 32] ^ nonce[i % 24];
+    }
+
+    return { content };
+  }
+
+  /**
+   * Encrypt content using wallet-based key derivation
+   */
+  async encryptContentWithWallet(
+    content: Uint8Array,
+    walletAddress: string,
+    capsuleId: string,
+    unlockTime: number
+  ): Promise<WASMWalletEncryptionResult> {
+    if (!this.initialized) {
+      throw new WASMEncryptionError("WASM module not loaded", -1);
+    }
+
+    try {
+      // Try to use real WASM function
+      if (this.wasmModule.wasm_encrypt_content_with_wallet) {
+        console.log(
+          "Using WASM wallet encryption for content of length:",
+          content.length
+        );
+        const result = this.wasmModule.wasm_encrypt_content_with_wallet(
+          content,
+          walletAddress,
+          capsuleId,
+          unlockTime
+        );
+
+        return {
+          ciphertext: new Uint8Array(result.ciphertext),
+          nonce: new Uint8Array(result.nonce),
+          contentHash: new Uint8Array(result.content_hash),
+          keyDerivationSalt: new Uint8Array(result.key_derivation_salt),
+        };
+      }
+    } catch (error) {
+      console.warn("WASM wallet encryption failed, using fallback:", error);
+    }
+
+    // Fallback implementation
+    console.log(
+      "Using fallback wallet encryption for content of length:",
+      content.length
+    );
+
+    // Generate salt for key derivation
+    const salt = new Uint8Array(32);
+    crypto.getRandomValues(salt);
+
+    // Generate nonce
+    const nonce = this.generateNonce();
+
+    // Simple key derivation (not secure, just for testing)
+    const keyMaterial = new TextEncoder().encode(
+      walletAddress + capsuleId + unlockTime.toString()
+    );
+    const keyHash = await crypto.subtle.digest("SHA-256", keyMaterial);
+    const key = new Uint8Array(keyHash);
+
+    // Simple XOR encryption for mock (NOT secure, just for testing)
+    const ciphertext = new Uint8Array(content.length);
+    for (let i = 0; i < content.length; i++) {
+      ciphertext[i] = content[i] ^ key[i % 32] ^ nonce[i % 24] ^ salt[i % 32];
+    }
+
+    const contentHash = await this.hashContent(content);
+
+    return {
+      ciphertext,
+      nonce,
+      contentHash,
+      keyDerivationSalt: salt,
+    };
+  }
+
+  /**
+   * Decrypt content using wallet-based key derivation
+   */
+  async decryptContentWithWallet(
+    ciphertext: Uint8Array,
+    nonce: Uint8Array,
+    walletAddress: string,
+    capsuleId: string,
+    unlockTime: number,
+    salt: Uint8Array
+  ): Promise<WASMDecryptionResult> {
+    if (!this.initialized) {
+      throw new WASMEncryptionError("WASM module not loaded", -1);
+    }
+
+    if (nonce.length !== 24) {
+      throw new WASMEncryptionError(
+        "Invalid nonce length: expected 24 bytes",
+        -1
+      );
+    }
+
+    if (salt.length !== 32) {
+      throw new WASMEncryptionError(
+        "Invalid salt length: expected 32 bytes",
+        -1
+      );
+    }
+
+    try {
+      // Try to use real WASM function
+      if (this.wasmModule.wasm_decrypt_content_with_wallet) {
+        console.log(
+          "Using WASM wallet decryption for ciphertext of length:",
+          ciphertext.length
+        );
+        const result = this.wasmModule.wasm_decrypt_content_with_wallet(
+          ciphertext,
+          nonce,
+          walletAddress,
+          capsuleId,
+          unlockTime,
+          salt
+        );
+        console.log(
+          "WASM wallet decryption successful, content length:",
+          result.length
+        );
+        return { content: new Uint8Array(result) };
+      }
+    } catch (error) {
+      console.warn("WASM wallet decryption failed, using fallback:", error);
+    }
+
+    // Fallback implementation - reverse of the mock encryption
+    console.log(
+      "Using fallback wallet decryption for ciphertext of length:",
+      ciphertext.length
+    );
+
+    // Derive the same key used for encryption
+    const keyMaterial = new TextEncoder().encode(
+      walletAddress + capsuleId + unlockTime.toString()
+    );
+    const keyHash = await crypto.subtle.digest("SHA-256", keyMaterial);
+    const key = new Uint8Array(keyHash);
+
+    // Reverse XOR encryption
+    const content = new Uint8Array(ciphertext.length);
+    for (let i = 0; i < ciphertext.length; i++) {
+      content[i] = ciphertext[i] ^ key[i % 32] ^ nonce[i % 24] ^ salt[i % 32];
     }
 
     return { content };

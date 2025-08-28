@@ -16,11 +16,6 @@ export async function getSDK(): Promise<CapsuleSDK> {
           | "testnet"
           | "mainnet") || "testnet",
       packageId: process.env.NEXT_PUBLIC_PACKAGE_ID,
-      usePinata: true,
-      pinataApiKey: process.env.NEXT_PUBLIC_PINATA_API_KEY,
-      pinataApiSecret: process.env.NEXT_PUBLIC_PINATA_API_SECRET,
-      pinataJWT: process.env.NEXT_PUBLIC_PINATA_JWT,
-      pinataGateway: process.env.NEXT_PUBLIC_PINATA_GATEWAY,
     });
 
     // Initialize the SDK
@@ -41,11 +36,6 @@ export function createSDK(config?: any): CapsuleSDK {
         | "testnet"
         | "mainnet") || "testnet",
     packageId: process.env.NEXT_PUBLIC_PACKAGE_ID,
-    usePinata: true,
-    pinataApiKey: process.env.NEXT_PUBLIC_PINATA_API_KEY,
-    pinataApiSecret: process.env.NEXT_PUBLIC_PINATA_API_SECRET,
-    pinataJWT: process.env.NEXT_PUBLIC_PINATA_JWT,
-    pinataGateway: process.env.NEXT_PUBLIC_PINATA_GATEWAY,
     ...config,
   });
 }

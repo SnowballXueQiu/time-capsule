@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import type { UnlockResult } from "@time-capsule/types";
+import type { UnlockResult } from "@time-capsule/sdk";
 
 interface ContentViewerProps {
   unlockResult: UnlockResult;
@@ -46,7 +46,9 @@ export function ContentViewer({
     setContentType(detectedType);
 
     // Create blob URL for content
-    const blob = new Blob([new Uint8Array(content)], { type: detectedType });
+    const blob = new Blob([new Uint8Array(content) as BlobPart], {
+      type: detectedType,
+    });
     const url = URL.createObjectURL(blob);
     setContentUrl(url);
 

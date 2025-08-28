@@ -32,11 +32,21 @@ export interface CapsuleStatus {
   canUnlock: boolean;
   timeRemaining?: number;
   statusMessage: string;
+  approvalProgress?: {
+    current: number;
+    required: number;
+    percentage: number;
+  };
+  paymentStatus?: {
+    paid: boolean;
+    amount?: number;
+  };
 }
 
 export class CapsuleSDK {
   private client: SuiClient;
   private packageId: string;
+  private wasmEncryption: any = null;
 
   constructor(config: CapsuleSDKConfig = {}) {
     const network = config.network || "devnet";
@@ -44,6 +54,15 @@ export class CapsuleSDK {
 
     this.client = new SuiClient({ url: rpcUrl });
     this.packageId = config.packageId || "0x0";
+  }
+
+  /**
+   * Initialize the SDK (no longer needed for basic functionality)
+   */
+  async initialize(): Promise<void> {
+    // This method is kept for backward compatibility
+    // WASM encryption is now loaded on-demand
+    console.log("SDK initialized");
   }
 
   /**
@@ -91,6 +110,30 @@ export class CapsuleSDK {
     } else {
       return `${seconds} second${seconds !== 1 ? "s" : ""}`;
     }
+  }
+
+  /**
+   * Get capsules owned by an address with status information
+   */
+  async getCapsulesByOwnerWithStatus(
+    owner: string,
+    options: CapsuleQueryOptions = {}
+  ): Promise<
+    CapsuleQueryResult & {
+      capsulesWithStatus: Array<Capsule & { status: CapsuleStatus }>;
+    }
+  > {
+    const result = await this.getCapsulesByOwner(owner, options);
+
+    const capsulesWithStatus = result.capsules.map((capsule) => ({
+      ...capsule,
+      status: this.getCapsuleStatus(capsule),
+    }));
+
+    return {
+      ...result,
+      capsulesWithStatus,
+    };
   }
 
   /**
@@ -205,6 +248,146 @@ export class CapsuleSDK {
   }
 
   /**
+   * Get WASM encryption instance (loads on-demand)
+   */
+  private async getWASMEncryption(): Promise<any> {
+    if (!this.wasmEncryption) {
+      try {
+        // Dynamic import to avoid bundling issues
+        const { WASMEncryption } = await import("./encryption/wasm-loader");
+        this.wasmEncryption = new WASMEncryption();
+        await this.wasmEncryption.loadModule();
+        console.log("WASM encryption loaded on-demand");
+      } catch (error) {
+        console.warn("Failed to load WASM encryption:", error);
+        throw new Error("WASM encryption not available");
+      }
+    }
+    return this.wasmEncryption;
+  }
+
+  /**
+   * Encrypt content using wallet-based key derivation
+   */
+  async encryptContentWithWallet(
+    content: Uint8Array,
+    walletAddress: string,
+    capsuleId: string,
+    unlockTime: number
+  ): Promise<{
+    ciphertext: Uint8Array;
+    nonce: Uint8Array;
+    contentHash: Uint8Array;
+    keyDerivationSalt: Uint8Array;
+  }> {
+    const wasmEncryption = await this.getWASMEncryption();
+    return await wasmEncryption.encryptContentWithWallet(
+      content,
+      walletAddress,
+      capsuleId,
+      unlockTime
+    );
+  }
+
+  /**
+   * Decrypt content using wallet-based key derivation
+   */
+  async decryptContentWithWallet(
+    ciphertext: Uint8Array,
+    nonce: Uint8Array,
+    walletAddress: string,
+    capsuleId: string,
+    unlockTime: number,
+    salt: Uint8Array
+  ): Promise<{ content: Uint8Array }> {
+    const wasmEncryption = await this.getWASMEncryption();
+    return await wasmEncryption.decryptContentWithWallet(
+      ciphertext,
+      nonce,
+      walletAddress,
+      capsuleId,
+      unlockTime,
+      salt
+    );
+  }
+
+  /**
+   * Upload encrypted content to IPFS
+   */
+  async uploadToIPFS(content: Uint8Array): Promise<string> {
+    try {
+      const formData = new FormData();
+      const blob = new Blob([content as BlobPart], {
+        type: "application/octet-stream",
+      });
+      formData.append("file", blob, `encrypted-${Date.now()}.bin`);
+
+      // Add metadata
+      const metadata = JSON.stringify({
+        name: `encrypted-capsule-${Date.now()}`,
+        keyvalues: {
+          type: "encrypted-time-capsule-content",
+          timestamp: Date.now().toString(),
+        },
+      });
+      formData.append("pinataMetadata", metadata);
+
+      const uploadResponse = await fetch(
+        "https://api.pinata.cloud/pinning/pinFileToIPFS",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${process.env.NEXT_PUBLIC_PINATA_JWT}`,
+          },
+          body: formData,
+        }
+      );
+
+      if (!uploadResponse.ok) {
+        const errorText = await uploadResponse.text();
+        throw new Error(`IPFS upload failed: ${errorText}`);
+      }
+
+      const uploadResult = await uploadResponse.json();
+      return uploadResult.IpfsHash;
+    } catch (error) {
+      throw new Error(`Failed to upload to IPFS: ${error}`);
+    }
+  }
+
+  /**
+   * Create an approval transaction for a multisig capsule
+   */
+  async createApprovalTransaction(capsuleId: string): Promise<any> {
+    // This is a placeholder implementation
+    // In a real implementation, this would create a Sui transaction
+    // to approve the capsule unlock
+    return {
+      type: "approval",
+      capsuleId,
+      timestamp: Date.now(),
+    };
+  }
+
+  /**
+   * Create an unlock transaction for a capsule
+   */
+  async createUnlockTransaction(
+    capsuleId: string,
+    paymentAmount?: number
+  ): Promise<any> {
+    // This is a placeholder implementation
+    // In a real implementation, this would create a Sui transaction
+    // to unlock the capsule with optional payment
+    return {
+      type: "unlock",
+      capsuleId,
+      paymentAmount,
+      timestamp: Date.now(),
+    };
+  }
+
+  /**
    * Parse a Sui object into a Capsule
    */
   private parseCapsuleObject(objectData: SuiObjectData): Capsule | null {
@@ -217,8 +400,9 @@ export class CapsuleSDK {
       return null;
     }
 
-    // Parse time-based capsule
+    // Parse time-based capsule with encryption metadata
     const unlockTimeMs = parseInt(fields.unlock_time_ms) || 0;
+    const createdAt = parseInt(fields.created_at) || Date.now();
 
     const unlockCondition: UnlockCondition = {
       type: "time",
@@ -233,8 +417,11 @@ export class CapsuleSDK {
         ? fields.content_hash.join("")
         : fields.content_hash || "",
       unlockCondition,
-      createdAt: Date.now(), // Use current time since we don't store creation time
+      createdAt,
       unlocked: fields.unlocked || false,
+      // 加密元数据
+      encryptionNonce: fields.nonce || [],
+      keyDerivationSalt: fields.key_derivation_salt || [],
     };
   }
 }

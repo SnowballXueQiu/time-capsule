@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useWallet } from "../hooks/useWallet";
 import { getSDK } from "../lib/sdk";
-import type { Capsule } from "@time-capsule/types";
+import type { Capsule } from "@time-capsule/sdk";
 
 interface PaymentSectionProps {
   capsule: Capsule;
@@ -22,7 +22,7 @@ export function PaymentSection({
   const requiredAmount = (capsule.unlockCondition.price || 0) / 1_000_000_000;
   const userBalance = parseFloat(balance || "0");
   const hasEnoughBalance = userBalance >= requiredAmount;
-  const isPaid = capsule.unlockCondition.paid;
+  const isPaid = false; // TODO: Get payment status from capsule status
 
   const handlePayment = async () => {
     if (!account || !address) {

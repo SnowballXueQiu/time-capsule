@@ -5,9 +5,9 @@ import {
   useCurrentAccount,
   useSignAndExecuteTransaction,
 } from "@mysten/dapp-kit";
-import { toB64 } from "@mysten/sui.js/utils";
+import { toB64 } from "@mysten/sui/utils";
 import { getSDK } from "../../lib/sdk";
-import type { Capsule, UnlockResult } from "@time-capsule/types";
+import type { Capsule, UnlockResult } from "@time-capsule/sdk";
 import { Loading } from "../Loading";
 
 interface UnlockModalProps {
@@ -26,8 +26,7 @@ export function UnlockModal({
   onError,
 }: UnlockModalProps) {
   const currentAccount = useCurrentAccount();
-  const { mutate: signAndExecuteTransaction } =
-    useSignAndExecuteTransaction();
+  const { mutate: signAndExecuteTransaction } = useSignAndExecuteTransaction();
   const [loading, setLoading] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState("");
   const [encryptionKey, setEncryptionKey] = useState("");
@@ -96,9 +95,10 @@ export function UnlockModal({
       console.log("UnlockModal: Content hash:", capsule.contentHash);
 
       // Step 1: Create unlock transaction
-      const paymentAmountMist = capsule.unlockCondition.type === "payment"
-        ? parseFloat(paymentAmount) * 1_000_000_000 // Convert SUI to MIST
-        : undefined;
+      const paymentAmountMist =
+        capsule.unlockCondition.type === "payment"
+          ? parseFloat(paymentAmount) * 1_000_000_000 // Convert SUI to MIST
+          : undefined;
 
       // Use the SDK's method to handle the complete unlock flow
       // This bypasses the transaction serialization issues

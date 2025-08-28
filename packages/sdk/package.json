@@ -11,6 +11,11 @@
       "import": "./dist/index.esm.js",
       "require": "./dist/index.js",
       "types": "./dist/index.d.ts"
+    },
+    "./encryption/wasm-loader": {
+      "import": "./dist/encryption/wasm-loader.esm.js",
+      "require": "./dist/encryption/wasm-loader.js",
+      "types": "./dist/encryption/wasm-loader.d.ts"
     }
   },
   "scripts": {

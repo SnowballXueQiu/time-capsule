@@ -10,11 +10,17 @@ export interface Capsule {
   unlockCondition: UnlockCondition;
   createdAt: number;
   unlocked: boolean;
+  // 加密元数据
+  encryptionNonce?: number[];
+  keyDerivationSalt?: number[];
 }
 
 export interface UnlockCondition {
-  type: "time";
-  unlockTime: number;
+  type: "time" | "multisig" | "payment";
+  unlockTime?: number;
+  threshold?: number;
+  approvers?: string[];
+  price?: number;
 }
 
 export interface CapsuleCreationResult {

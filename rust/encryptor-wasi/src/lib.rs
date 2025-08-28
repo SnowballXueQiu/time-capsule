@@ -2,7 +2,10 @@ use chacha20poly1305::{
     aead::{rand_core::RngCore, Aead, KeyInit, OsRng},
     XChaCha20Poly1305, XNonce,
 };
+use hkdf::Hkdf;
 use serde::{Deserialize, Serialize};
+use sha2::Sha256;
+// SHA3 imports removed as they're not currently used
 use thiserror::Error;
 
 pub mod hash;
@@ -22,6 +25,15 @@ pub struct EncryptionResult {
     pub content_hash: [u8; 32],
 }
 
+/// Wallet-based encryption result with key derivation salt
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WalletEncryptionResult {
+    pub ciphertext: Vec<u8>,
+    pub nonce: [u8; 24],
+    pub content_hash: [u8; 32],
+    pub key_derivation_salt: [u8; 32],
+}
+
 /// Decryption result containing the original content
 #[derive(Debug, Clone)]
 pub struct DecryptionResult {
@@ -39,6 +51,10 @@ pub enum EncryptionError {
     DecryptionFailed(String),
     #[error("Random number generation failed")]
     RandomGenerationFailed,
+    #[error("Key derivation failed: {0}")]
+    KeyDerivationFailed(String),
+    #[error("Invalid address format")]
+    InvalidAddress,
 }
 
 /// Generate a new 32-byte encryption key
@@ -57,6 +73,118 @@ pub fn generate_nonce() -> Result<[u8; 24], EncryptionError> {
         .try_fill_bytes(&mut nonce)
         .map_err(|_| EncryptionError::RandomGenerationFailed)?;
     Ok(nonce)
+}
+
+/// Generate a salt for key derivation
+pub fn generate_salt() -> Result<[u8; 32], EncryptionError> {
+    let mut salt = [0u8; 32];
+    OsRng
+        .try_fill_bytes(&mut salt)
+        .map_err(|_| EncryptionError::RandomGenerationFailed)?;
+    Ok(salt)
+}
+
+/// Derive encryption key from wallet address and capsule metadata
+pub fn derive_key_from_wallet(
+    wallet_address: &str,
+    capsule_id: &str,
+    unlock_time: u64,
+    salt: &[u8; 32],
+) -> Result<[u8; 32], EncryptionError> {
+    // Create key material by combining all inputs
+    let mut key_material = Vec::new();
+
+    // Add wallet address (remove 0x prefix if present)
+    let addr = if wallet_address.starts_with("0x") {
+        &wallet_address[2..]
+    } else {
+        wallet_address
+    };
+
+    // Convert hex address to bytes
+    let addr_bytes = hex::decode(addr).map_err(|_| EncryptionError::InvalidAddress)?;
+    key_material.extend_from_slice(&addr_bytes);
+
+    // Add capsule ID
+    key_material.extend_from_slice(capsule_id.as_bytes());
+
+    // Add unlock time as bytes
+    key_material.extend_from_slice(&unlock_time.to_le_bytes());
+
+    // Add salt
+    key_material.extend_from_slice(salt);
+
+    // Use HKDF to derive a proper encryption key
+    let hk = Hkdf::<Sha256>::new(Some(salt), &key_material);
+    let mut key = [0u8; 32];
+    hk.expand(b"time-capsule-encryption-key", &mut key)
+        .map_err(|e| EncryptionError::KeyDerivationFailed(e.to_string()))?;
+
+    Ok(key)
+}
+
+/// Encrypt content using wallet-based key derivation
+pub fn encrypt_content_with_wallet(
+    content: &[u8],
+    wallet_address: &str,
+    capsule_id: &str,
+    unlock_time: u64,
+) -> Result<WalletEncryptionResult, EncryptionError> {
+    // Generate salt for key derivation
+    let salt = generate_salt()?;
+
+    // Derive key from wallet and capsule metadata
+    let key = derive_key_from_wallet(wallet_address, capsule_id, unlock_time, &salt)?;
+
+    // Generate nonce
+    let nonce_bytes = generate_nonce()?;
+    let nonce = XNonce::from_slice(&nonce_bytes);
+
+    // Create cipher instance
+    let cipher = XChaCha20Poly1305::new_from_slice(&key)
+        .map_err(|e| EncryptionError::EncryptionFailed(e.to_string()))?;
+
+    // Encrypt content
+    let ciphertext = cipher
+        .encrypt(nonce, content)
+        .map_err(|e| EncryptionError::EncryptionFailed(e.to_string()))?;
+
+    // Compute content hash
+    let content_hash = hash_content(content);
+
+    Ok(WalletEncryptionResult {
+        ciphertext,
+        nonce: nonce_bytes,
+        content_hash,
+        key_derivation_salt: salt,
+    })
+}
+
+/// Decrypt content using wallet-based key derivation
+pub fn decrypt_content_with_wallet(
+    ciphertext: &[u8],
+    nonce: &[u8; 24],
+    wallet_address: &str,
+    capsule_id: &str,
+    unlock_time: u64,
+    salt: &[u8; 32],
+) -> Result<DecryptionResult, EncryptionError> {
+    // Derive the same key used for encryption
+    let key = derive_key_from_wallet(wallet_address, capsule_id, unlock_time, salt)?;
+
+    // Create cipher instance
+    let cipher = XChaCha20Poly1305::new_from_slice(&key)
+        .map_err(|e| EncryptionError::DecryptionFailed(e.to_string()))?;
+
+    // Create nonce
+    let nonce = XNonce::from_slice(nonce);
+
+    // Decrypt content
+    let content = cipher
+        .decrypt(nonce, ciphertext)
+        .map_err(|e| EncryptionError::DecryptionFailed(e.to_string()))?;
+
+    Ok(DecryptionResult { content })
 }
 
 /// Compute BLAKE3 hash of content (legacy function, use hash::hash_content_bytes instead)

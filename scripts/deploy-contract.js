@@ -8,12 +8,15 @@ console.log("🚀 Deploying Time Capsule smart contract to Sui testnet...");
 
 try {
   // Check if sui CLI is available
-  const suiCommand = process.platform === "win32" ? "lib\\sui.exe" : "sui";
+  const suiCommand =
+    process.platform === "win32"
+      ? path.join(__dirname, "..", "bin", "sui.exe")
+      : "sui";
   try {
     execSync(`${suiCommand} --version`, { stdio: "pipe" });
   } catch (error) {
-    console.error("❌ Sui CLI not found. Please make sure lib/sui.exe exists.");
-    console.log("💡 Download Sui CLI and place it in lib/sui.exe");
+    console.error("❌ Sui CLI not found. Please make sure bin/sui.exe exists.");
+    console.log("💡 Download Sui CLI and place it in bin/sui.exe");
     process.exit(1);
   }
 
@@ -73,11 +76,11 @@ try {
   console.log("🔨 Building contract...");
   const contractDir = path.join(__dirname, "..", "contracts");
 
-  // Change to contract directory and build
-  process.chdir(contractDir);
-
   try {
-    execSync(`${suiCommand} move build`, { stdio: "inherit" });
+    execSync(`${suiCommand} move build`, {
+      stdio: "inherit",
+      cwd: contractDir,
+    });
     console.log("✅ Contract built successfully");
   } catch (error) {
     console.error("❌ Contract build failed");
@@ -93,6 +96,7 @@ try {
       {
         encoding: "utf8",
         stdio: "pipe",
+        cwd: contractDir,
       }
     );
 

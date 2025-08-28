@@ -6,14 +6,8 @@ import { CapsuleSDK } from "@time-capsule/sdk";
 export function createPinataCapsuleSDK() {
   return new CapsuleSDK({
     network: "devnet", // or "testnet", "mainnet"
-    usePinata: true,
     // Pinata credentials will be automatically loaded from environment variables
-    // NEXT_PUBLIC_PINATA_API_KEY, NEXT_PUBLIC_PINATA_API_SECRET, NEXT_PUBLIC_PINATA_JWT
-    // You can also pass them explicitly:
-    // pinataApiKey: process.env.NEXT_PUBLIC_PINATA_API_KEY,
-    // pinataApiSecret: process.env.NEXT_PUBLIC_PINATA_API_SECRET,
-    // pinataJWT: process.env.NEXT_PUBLIC_PINATA_JWT,
-    // pinataGateway: process.env.NEXT_PUBLIC_PINATA_GATEWAY,
+    // NEXT_PUBLIC_PINATA_JWT is used in the SDK's uploadToIPFS method
   });
 }
 

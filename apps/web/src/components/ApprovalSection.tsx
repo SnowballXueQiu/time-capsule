@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useWallet } from "../hooks/useWallet";
 import { getSDK } from "../lib/sdk";
-import type { Capsule } from "@time-capsule/types";
+import type { Capsule } from "@time-capsule/sdk";
 
 interface ApprovalSectionProps {
   capsule: Capsule;
@@ -20,8 +20,8 @@ export function ApprovalSection({
   const [success, setSuccess] = useState<string | null>(null);
 
   const hasAlreadyApproved = () => {
-    if (!address || !capsule.unlockCondition.approvals) return false;
-    return capsule.unlockCondition.approvals.includes(address);
+    if (!address || !capsule.unlockCondition.approvers) return false;
+    return capsule.unlockCondition.approvers.includes(address);
   };
 
   const handleApprove = async () => {
@@ -64,7 +64,7 @@ export function ApprovalSection({
     }
   };
 
-  const currentApprovals = capsule.unlockCondition.approvals?.length || 0;
+  const currentApprovals = capsule.unlockCondition.approvers?.length || 0;
   const requiredApprovals = capsule.unlockCondition.threshold || 1;
   const progressPercentage = (currentApprovals / requiredApprovals) * 100;
 
@@ -98,14 +98,14 @@ export function ApprovalSection({
       </div>
 
       {/* Approvals List */}
-      {capsule.unlockCondition.approvals &&
-        capsule.unlockCondition.approvals.length > 0 && (
+      {capsule.unlockCondition.approvers &&
+        capsule.unlockCondition.approvers.length > 0 && (
           <div className="mb-6">
             <h3 className="text-sm font-medium text-gray-700 mb-3">
               Approved By:
             </h3>
             <div className="space-y-2">
-              {capsule.unlockCondition.approvals.map((approver, index) => (
+              {capsule.unlockCondition.approvers.map((approver, index) => (
                 <div
                   key={index}
                   className="flex items-center space-x-3 p-2 bg-green-50 rounded"

@@ -92,7 +92,9 @@ export function CreateCapsuleForm() {
 
         // Upload content to IPFS via Pinata API
         const formData = new FormData();
-        const blob = new Blob([content.content], { type: content.contentType });
+        const blob = new Blob([content.content as BlobPart], {
+          type: content.contentType,
+        });
         formData.append("file", blob, content.filename || "capsule-content");
 
         // Add metadata

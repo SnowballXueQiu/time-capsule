@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from "react";
 import { useWallet } from "../hooks/useWallet";
-import { getSDK } from "../lib/sdk";
+import { getSDK } from "../lib/sdk-simple";
 import { UnlockModal } from "./UnlockModal";
-import type { Capsule } from "@time-capsule/types";
+import type { Capsule } from "@time-capsule/sdk";
 import type { CapsuleStatus } from "@time-capsule/sdk";
 
 interface CapsuleWithStatus extends Capsule {
@@ -34,7 +34,13 @@ export function CapsuleList() {
 
       const sdk = await getSDK();
       const result = await sdk.getCapsulesByOwnerWithStatus(address);
-      setCapsules(result.capsules);
+      setCapsules(
+        result.capsulesWithStatus ||
+          result.capsules.map((capsule) => ({
+            ...capsule,
+            status: sdk.getCapsuleStatus(capsule),
+          }))
+      );
     } catch (err) {
       console.error("Failed to load capsules:", err);
       setError(err instanceof Error ? err.message : "Failed to load capsules");

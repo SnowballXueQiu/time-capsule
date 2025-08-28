@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import type { Capsule } from "@time-capsule/types";
+import type { Capsule } from "@time-capsule/sdk";
 import { CapsuleStatusBadge } from "./CapsuleStatusBadge";
 import { CountdownTimer } from "./CountdownTimer";
 import { ProgressBar } from "./ProgressBar";
@@ -153,7 +153,7 @@ export function CapsuleCard({
       capsule.unlockCondition.type === "multisig" &&
       !capsule.unlocked &&
       currentUserAddress &&
-      !capsule.unlockCondition.approvals?.includes(currentUserAddress)
+      !capsule.unlockCondition.approvers?.includes(currentUserAddress)
     );
   };
 

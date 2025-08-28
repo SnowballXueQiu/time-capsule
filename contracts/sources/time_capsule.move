@@ -12,7 +12,7 @@ module time_capsule::capsule {
     const EAlreadyUnlocked: u64 = 2;
     const ETimeNotReached: u64 = 3;
 
-    /// Time Capsule struct - simplified for time-based only
+    /// Time Capsule struct with encryption metadata
     public struct TimeCapsule has key, store {
         id: UID,
         owner: address,
@@ -21,6 +21,9 @@ module time_capsule::capsule {
         unlock_time_ms: u64,
         unlocked: bool,
         created_at: u64,
+        // Encryption metadata
+        nonce: vector<u8>,
+        key_derivation_salt: vector<u8>,
     }
 
     /// Events
@@ -37,10 +40,12 @@ module time_capsule::capsule {
         unlock_time: u64,
     }
 
-    /// Create a time-locked capsule
+    /// Create a time-locked capsule with encryption metadata
     public entry fun create_time_capsule(
         cid: vector<u8>,
         content_hash: vector<u8>,
+        nonce: vector<u8>,
+        key_derivation_salt: vector<u8>,
         unlock_time_ms: u64,
         clock: &Clock,
         ctx: &mut TxContext
@@ -56,6 +61,8 @@ module time_capsule::capsule {
             unlock_time_ms,
             unlocked: false,
             created_at: current_time,
+            nonce,
+            key_derivation_salt,
         };
 
         let capsule_id = object::uid_to_address(&capsule.id);
@@ -69,8 +76,6 @@ module time_capsule::capsule {
 
         transfer::share_object(capsule);
     }
-
-
 
     /// Unlock a time-locked capsule
     public entry fun unlock_capsule(
@@ -101,7 +106,9 @@ module time_capsule::capsule {
         vector<u8>, // content_hash
         u64,        // unlock_time_ms
         bool,       // unlocked
-        u64         // created_at
+        u64,        // created_at
+        vector<u8>, // nonce
+        vector<u8>  // key_derivation_salt
     ) {
         (
             capsule.owner,
@@ -109,7 +116,15 @@ module time_capsule::capsule {
             capsule.content_hash,
             capsule.unlock_time_ms,
             capsule.unlocked,
-            capsule.created_at
+            capsule.created_at,
+            capsule.nonce,
+            capsule.key_derivation_salt
         )
+    }
+
+    /// Check if capsule can be unlocked
+    public fun can_unlock(capsule: &TimeCapsule, clock: &Clock): bool {
+        let current_time = clock::timestamp_ms(clock);
+        current_time >= capsule.unlock_time_ms
     }
 }

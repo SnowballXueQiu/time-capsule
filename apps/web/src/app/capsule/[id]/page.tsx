@@ -9,8 +9,7 @@ import { ApprovalSection } from "../../../components/ApprovalSection";
 import { PaymentSection } from "../../../components/PaymentSection";
 import { getSDK } from "../../../lib/sdk";
 import { useWallet } from "../../../hooks/useWallet";
-import type { Capsule } from "@time-capsule/types";
-import type { CapsuleStatus } from "@time-capsule/sdk";
+import type { Capsule, CapsuleStatus } from "@time-capsule/sdk";
 
 interface CapsuleWithStatus extends Capsule {
   status: CapsuleStatus;

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCurrentAccount } from "@mysten/dapp-kit";
-import type { Capsule } from "@time-capsule/types";
+import type { Capsule } from "@time-capsule/sdk";
 import { CapsuleCard } from "./CapsuleCard";
 import { Loading } from "../Loading";
 import { useCapsuleUpdates } from "../../hooks/useCapsuleUpdates";

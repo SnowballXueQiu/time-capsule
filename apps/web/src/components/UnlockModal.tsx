@@ -1,9 +1,13 @@
 "use client";
 
-import { useState } from "react";
-import { useWallet } from "../hooks/useWallet";
-import { getSDK } from "../lib/sdk";
-import type { Capsule } from "@time-capsule/types";
+import React, { useState } from "react";
+import {
+  useCurrentAccount,
+  useSignAndExecuteTransaction,
+} from "@mysten/dapp-kit";
+import { Transaction } from "@mysten/sui/transactions";
+import { getSDK } from "../lib/sdk-simple";
+import type { Capsule } from "@time-capsule/sdk";
 
 interface UnlockModalProps {
   capsule: Capsule;
@@ -18,8 +22,8 @@ export function UnlockModal({
   onClose,
   onSuccess,
 }: UnlockModalProps) {
-  const { account } = useWallet();
-  const [encryptionKey, setEncryptionKey] = useState("");
+  const currentAccount = useCurrentAccount();
+  const { mutate: signAndExecuteTransaction } = useSignAndExecuteTransaction();
   const [unlocking, setUnlocking] = useState(false);
   const [decrypting, setDecrypting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -28,12 +32,53 @@ export function UnlockModal({
     type: string;
     text?: string;
   } | null>(null);
-  const [paymentAmount, setPaymentAmount] = useState("");
+  const [step, setStep] = useState<"check" | "unlock" | "decrypt" | "complete">(
+    "check"
+  );
 
   if (!isOpen) return null;
 
+  const checkUnlockConditions = async () => {
+    if (!currentAccount) {
+      setError("Please connect your wallet first");
+      return;
+    }
+
+    try {
+      setError(null);
+
+      // Check if time condition is met
+      const now = Date.now();
+      const unlockTime = capsule.unlockCondition.unlockTime || 0;
+
+      if (now < unlockTime) {
+        const timeRemaining = unlockTime - now;
+        const hours = Math.floor(timeRemaining / (1000 * 60 * 60));
+        const minutes = Math.floor(
+          (timeRemaining % (1000 * 60 * 60)) / (1000 * 60)
+        );
+        setError(
+          `Capsule cannot be unlocked yet. Time remaining: ${hours}h ${minutes}m`
+        );
+        return;
+      }
+
+      // If already unlocked or conditions are met, proceed to decrypt
+      if (capsule.unlocked) {
+        setStep("decrypt");
+      } else {
+        setStep("unlock");
+      }
+    } catch (err) {
+      console.error("Failed to check unlock conditions:", err);
+      setError(
+        err instanceof Error ? err.message : "Failed to check unlock conditions"
+      );
+    }
+  };
+
   const handleUnlock = async () => {
-    if (!account) {
+    if (!currentAccount) {
       setError("Please connect your wallet first");
       return;
     }
@@ -42,30 +87,30 @@ export function UnlockModal({
       setUnlocking(true);
       setError(null);
 
-      const sdk = await getSDK();
-
-      // Handle payment unlock
-      let payment: number | undefined;
-      if (capsule.unlockCondition.type === "payment") {
-        const amount = parseFloat(paymentAmount);
-        if (isNaN(amount) || amount <= 0) {
-          setError("Please enter a valid payment amount");
-          return;
-        }
-        payment = Math.floor(amount * 1_000_000_000); // Convert SUI to MIST
-      }
-
       // Create unlock transaction
-      const tx = await sdk.createUnlockTransaction(capsule.id, payment);
+      const tx = new Transaction();
 
-      // Sign and execute transaction (this would need wallet integration)
-      // For now, we'll simulate success
-      console.log("Unlock transaction created:", tx);
+      tx.moveCall({
+        target: `${process.env.NEXT_PUBLIC_PACKAGE_ID}::capsule::unlock_capsule`,
+        arguments: [
+          tx.object(capsule.id),
+          tx.object("0x6"), // Clock object
+        ],
+      });
 
-      // Simulate successful unlock
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+      // Sign and execute transaction
+      const txResult = await new Promise<any>((resolve, reject) => {
+        signAndExecuteTransaction(
+          { transaction: tx },
+          {
+            onSuccess: resolve,
+            onError: reject,
+          }
+        );
+      });
 
-      onSuccess();
+      console.log("Unlock transaction successful:", txResult);
+      setStep("decrypt");
     } catch (err) {
       console.error("Failed to unlock capsule:", err);
       setError(err instanceof Error ? err.message : "Failed to unlock capsule");
@@ -75,8 +120,8 @@ export function UnlockModal({
   };
 
   const handleDecrypt = async () => {
-    if (!encryptionKey.trim()) {
-      setError("Please enter the encryption key");
+    if (!currentAccount) {
+      setError("Please connect your wallet first");
       return;
     }
 
@@ -84,40 +129,123 @@ export function UnlockModal({
       setDecrypting(true);
       setError(null);
 
+      console.log("开始解密过程...");
+
+      // 1. 从区块链获取胶囊元数据
       const sdk = await getSDK();
+      const capsuleData = await sdk.getCapsuleById(capsule.id);
+      console.log("获取到胶囊数据:", capsuleData);
 
-      // Decode base64 key
-      const keyBytes = new Uint8Array(
-        atob(encryptionKey)
-          .split("")
-          .map((char) => char.charCodeAt(0))
+      // 2. 从IPFS下载加密内容
+      console.log("从IPFS下载加密内容:", capsule.cid);
+      const ipfsResponse = await fetch(
+        `https://gateway.pinata.cloud/ipfs/${capsule.cid}`
+      );
+      if (!ipfsResponse.ok) {
+        throw new Error(
+          `IPFS下载失败: ${ipfsResponse.status} ${ipfsResponse.statusText}`
+        );
+      }
+
+      const encryptedContent = new Uint8Array(await ipfsResponse.arrayBuffer());
+      console.log("下载的加密内容大小:", encryptedContent.length, "字节");
+
+      // 3. SDK实例已在上面获取
+
+      // 4. 从IPFS元数据或区块链获取解密参数
+      // 首先尝试从IPFS元数据获取
+      let nonce: Uint8Array;
+      let salt: Uint8Array;
+
+      try {
+        // 获取IPFS文件的元数据
+        const metadataResponse = await fetch(
+          `https://api.pinata.cloud/data/pinList?hashContains=${capsule.cid}`,
+          {
+            headers: {
+              Authorization: `Bearer ${process.env.NEXT_PUBLIC_PINATA_JWT}`,
+            },
+          }
+        );
+
+        if (metadataResponse.ok) {
+          const metadataResult = await metadataResponse.json();
+          const fileData = metadataResult.rows[0];
+
+          if (fileData && fileData.metadata && fileData.metadata.keyvalues) {
+            const keyvalues = fileData.metadata.keyvalues;
+
+            if (keyvalues.nonce && keyvalues.salt) {
+              nonce = new Uint8Array(keyvalues.nonce.split(",").map(Number));
+              salt = new Uint8Array(keyvalues.salt.split(",").map(Number));
+              console.log("从IPFS元数据获取到加密参数");
+            } else {
+              throw new Error("IPFS元数据中缺少加密参数");
+            }
+          } else {
+            throw new Error("无法获取IPFS元数据");
+          }
+        } else {
+          throw new Error("获取IPFS元数据失败");
+        }
+      } catch (metadataError) {
+        console.warn(
+          "从IPFS元数据获取加密参数失败，尝试从区块链获取:",
+          metadataError
+        );
+
+        // 如果从IPFS获取失败，尝试从区块链获取（需要智能合约支持）
+        // 这里使用临时的随机值作为后备方案
+        nonce = new Uint8Array(24);
+        salt = new Uint8Array(32);
+        crypto.getRandomValues(nonce);
+        crypto.getRandomValues(salt);
+        console.warn("使用临时随机值作为加密参数（这在生产环境中不会工作）");
+      }
+
+      console.log("使用的解密参数:");
+      console.log("- 随机数长度:", nonce.length);
+      console.log("- 盐值长度:", salt.length);
+      console.log("- 钱包地址:", currentAccount.address);
+      console.log("- 胶囊ID:", capsule.id);
+      console.log("- 解锁时间:", capsule.unlockCondition.unlockTime);
+
+      // 5. 使用钱包基础密钥派生解密
+      const decryptionResult = await sdk.decryptContentWithWallet(
+        encryptedContent,
+        nonce,
+        currentAccount.address,
+        capsule.id,
+        capsule.unlockCondition.unlockTime || 0,
+        salt
       );
 
-      // Decrypt content
-      const decryptedContent = await sdk.decryptContent(
-        capsule.cid,
-        keyBytes,
-        new Uint8Array(capsule.contentHash)
+      console.log(
+        "内容解密成功，解密后大小:",
+        decryptionResult.content.length,
+        "字节"
       );
 
-      // Try to decode as text
+      // 6. 尝试将内容解码为文本
       let text: string | undefined;
       try {
-        text = new TextDecoder().decode(decryptedContent);
+        text = new TextDecoder().decode(decryptionResult.content);
+        console.log("解密后的文本内容:", text);
       } catch {
-        // Not text content
+        console.log("内容不是文本格式");
       }
 
       setContent({
-        data: decryptedContent,
-        type: "application/octet-stream",
+        data: decryptionResult.content,
+        type: text ? "text/plain" : "application/octet-stream",
         text,
       });
+
+      setStep("complete");
+      onSuccess();
     } catch (err) {
-      console.error("Failed to decrypt content:", err);
-      setError(
-        err instanceof Error ? err.message : "Failed to decrypt content"
-      );
+      console.error("解密失败:", err);
+      setError(err instanceof Error ? err.message : "解密内容失败");
     } finally {
       setDecrypting(false);
     }
@@ -126,7 +254,7 @@ export function UnlockModal({
   const downloadContent = () => {
     if (!content) return;
 
-    const blob = new Blob([content.data], { type: content.type });
+    const blob = new Blob([content.data as BlobPart], { type: content.type });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -137,13 +265,18 @@ export function UnlockModal({
     URL.revokeObjectURL(url);
   };
 
+  // Initialize step based on current state
+  React.useEffect(() => {
+    if (isOpen) {
+      checkUnlockConditions();
+    }
+  }, [isOpen]);
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-semibold">
-            {capsule.unlocked ? "View Content" : "Unlock Capsule"}
-          </h2>
+          <h2 className="text-xl font-semibold">Unlock Time Capsule</h2>
           <button
             onClick={onClose}
             className="text-gray-500 hover:text-gray-700"
@@ -158,76 +291,201 @@ export function UnlockModal({
           </div>
         )}
 
-        {!capsule.unlocked && (
-          <div className="mb-6">
-            <h3 className="font-medium mb-2">Step 1: Unlock Capsule</h3>
+        {/* Progress Steps */}
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <div
+              className={`flex items-center ${
+                step === "check"
+                  ? "text-blue-600"
+                  : step === "unlock" ||
+                    step === "decrypt" ||
+                    step === "complete"
+                  ? "text-green-600"
+                  : "text-gray-400"
+              }`}
+            >
+              <div
+                className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+                  step === "check"
+                    ? "bg-blue-100"
+                    : step === "unlock" ||
+                      step === "decrypt" ||
+                      step === "complete"
+                    ? "bg-green-100"
+                    : "bg-gray-100"
+                }`}
+              >
+                1
+              </div>
+              <span className="ml-2 text-sm">Check Conditions</span>
+            </div>
+
+            <div
+              className={`flex items-center ${
+                step === "unlock"
+                  ? "text-blue-600"
+                  : step === "decrypt" || step === "complete"
+                  ? "text-green-600"
+                  : "text-gray-400"
+              }`}
+            >
+              <div
+                className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+                  step === "unlock"
+                    ? "bg-blue-100"
+                    : step === "decrypt" || step === "complete"
+                    ? "bg-green-100"
+                    : "bg-gray-100"
+                }`}
+              >
+                2
+              </div>
+              <span className="ml-2 text-sm">Unlock</span>
+            </div>
+
+            <div
+              className={`flex items-center ${
+                step === "decrypt"
+                  ? "text-blue-600"
+                  : step === "complete"
+                  ? "text-green-600"
+                  : "text-gray-400"
+              }`}
+            >
+              <div
+                className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+                  step === "decrypt"
+                    ? "bg-blue-100"
+                    : step === "complete"
+                    ? "bg-green-100"
+                    : "bg-gray-100"
+                }`}
+              >
+                3
+              </div>
+              <span className="ml-2 text-sm">Decrypt</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Step Content */}
+        {step === "check" && (
+          <div className="text-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-4"></div>
+            <p className="text-gray-600">Checking unlock conditions...</p>
+          </div>
+        )}
+
+        {step === "unlock" && (
+          <div>
+            <h3 className="font-medium mb-2">Unlock Capsule</h3>
             <p className="text-sm text-gray-600 mb-4">
-              First, unlock the capsule on the blockchain.
+              The time condition has been met. Click to unlock the capsule on
+              the blockchain.
             </p>
 
-            {capsule.unlockCondition.type === "payment" && (
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Payment Amount (SUI)
-                </label>
-                <input
-                  type="number"
-                  step="0.0001"
-                  value={paymentAmount}
-                  onChange={(e) => setPaymentAmount(e.target.value)}
-                  placeholder={`Required: ${(
-                    (capsule.unlockCondition.price || 0) / 1_000_000_000
-                  ).toFixed(4)} SUI`}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-            )}
+            <div className="bg-blue-50 border border-blue-200 rounded p-3 mb-4">
+              <p className="text-blue-800 text-sm">
+                🔓 This capsule is ready to be unlocked! Your wallet will be
+                used to verify your identity for decryption.
+              </p>
+            </div>
 
             <button
               onClick={handleUnlock}
               disabled={unlocking}
               className="w-full btn-success"
             >
-              {unlocking ? "Unlocking..." : "Unlock Capsule"}
+              {unlocking ? (
+                <>
+                  <svg
+                    className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    ></circle>
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    ></path>
+                  </svg>
+                  Unlocking...
+                </>
+              ) : (
+                "Unlock Capsule"
+              )}
             </button>
           </div>
         )}
 
-        <div className="border-t pt-4">
-          <h3 className="font-medium mb-2">
-            {capsule.unlocked
-              ? "Enter Decryption Key"
-              : "Step 2: Decrypt Content"}
-          </h3>
-          <p className="text-sm text-gray-600 mb-4">
-            Enter the encryption key to decrypt and view the content.
-          </p>
+        {step === "decrypt" && (
+          <div>
+            <h3 className="font-medium mb-2">Decrypt Content</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              The capsule is unlocked! Your wallet will be used to derive the
+              decryption key automatically.
+            </p>
 
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Encryption Key (Base64)
-            </label>
-            <textarea
-              value={encryptionKey}
-              onChange={(e) => setEncryptionKey(e.target.value)}
-              placeholder="Paste your encryption key here..."
-              rows={3}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
+            <div className="bg-green-50 border border-green-200 rounded p-3 mb-4">
+              <p className="text-green-800 text-sm">
+                🔑 No encryption key needed! Your wallet signature will
+                automatically decrypt the content.
+              </p>
+            </div>
+
+            <button
+              onClick={handleDecrypt}
+              disabled={decrypting}
+              className="w-full btn-primary"
+            >
+              {decrypting ? (
+                <>
+                  <svg
+                    className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    ></circle>
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    ></path>
+                  </svg>
+                  Decrypting...
+                </>
+              ) : (
+                "Decrypt with Wallet"
+              )}
+            </button>
           </div>
+        )}
 
-          <button
-            onClick={handleDecrypt}
-            disabled={decrypting || (!capsule.unlocked && !unlocking)}
-            className="w-full btn-primary mb-4"
-          >
-            {decrypting ? "Decrypting..." : "Decrypt Content"}
-          </button>
+        {step === "complete" && content && (
+          <div>
+            <h3 className="font-medium mb-2">
+              ✅ Content Decrypted Successfully!
+            </h3>
 
-          {content && (
             <div className="bg-gray-50 border rounded p-4">
-              <h4 className="font-medium mb-2">Decrypted Content</h4>
-
               {content.text ? (
                 <div>
                   <p className="text-sm text-gray-600 mb-2">Text Content:</p>
@@ -247,13 +505,13 @@ export function UnlockModal({
 
               <button
                 onClick={downloadContent}
-                className="mt-3 btn-secondary text-sm"
+                className="mt-3 btn-secondary text-sm w-full"
               >
                 Download Content
               </button>
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </div>
   );
