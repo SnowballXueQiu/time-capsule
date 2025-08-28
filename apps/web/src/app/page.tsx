@@ -259,45 +259,194 @@ export default function Home() {
             <h2 className="text-3xl font-bold text-center mb-8 text-gray-900">
               How It Works
             </h2>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+
+            {/* Technical Architecture Flow */}
+            <div className="mb-12">
+              <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg p-6 mb-8">
+                <h3 className="text-xl font-semibold text-center mb-6 text-gray-800">
+                  Technical Architecture & Process Flow
+                </h3>
+
+                {/* Flow Diagram */}
+                <div className="flex flex-col lg:flex-row items-center justify-center space-y-4 lg:space-y-0 lg:space-x-6">
+                  {/* Wallet */}
+                  <div className="flex flex-col items-center">
+                    <div className="bg-blue-500 text-white rounded-lg p-3 mb-2">
+                      <svg
+                        className="w-6 h-6"
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                      >
+                        <path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4zM18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1z" />
+                      </svg>
+                    </div>
+                    <span className="text-sm font-medium">Sui Wallet</span>
+                  </div>
+
+                  <div className="text-gray-400 font-bold">
+                    <span className="hidden lg:inline">→</span>
+                    <span className="lg:hidden">↓</span>
+                  </div>
+
+                  {/* WASM Encryption */}
+                  <div className="flex flex-col items-center">
+                    <div className="bg-green-500 text-white rounded-lg p-3 mb-2">
+                      <svg
+                        className="w-6 h-6"
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z"
+                        />
+                      </svg>
+                    </div>
+                    <span className="text-sm font-medium">WASM Encryption</span>
+                  </div>
+
+                  <div className="text-gray-400 font-bold">
+                    <span className="hidden lg:inline">→</span>
+                    <span className="lg:hidden">↓</span>
+                  </div>
+
+                  {/* IPFS */}
+                  <div className="flex flex-col items-center">
+                    <div className="bg-purple-500 text-white rounded-lg p-3 mb-2">
+                      <svg
+                        className="w-6 h-6"
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                      >
+                        <path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z" />
+                      </svg>
+                    </div>
+                    <span className="text-sm font-medium">IPFS Storage</span>
+                  </div>
+
+                  <div className="text-gray-400 font-bold">
+                    <span className="hidden lg:inline">→</span>
+                    <span className="lg:hidden">↓</span>
+                  </div>
+
+                  {/* Blockchain */}
+                  <div className="flex flex-col items-center">
+                    <div className="bg-orange-500 text-white rounded-lg p-3 mb-2">
+                      <svg
+                        className="w-6 h-6"
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                      >
+                        <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+                    <span className="text-sm font-medium">Sui Blockchain</span>
+                  </div>
+                </div>
+
+                {/* Technology Stack */}
+                <div className="mt-6 grid grid-cols-2 lg:grid-cols-4 gap-4 text-center">
+                  <div className="bg-white rounded-lg p-3 shadow-sm">
+                    <div className="text-blue-600 font-semibold text-sm">
+                      Wallet Auth
+                    </div>
+                    <div className="text-xs text-gray-600 mt-1">
+                      Ed25519 Signatures
+                    </div>
+                  </div>
+                  <div className="bg-white rounded-lg p-3 shadow-sm">
+                    <div className="text-green-600 font-semibold text-sm">
+                      Encryption
+                    </div>
+                    <div className="text-xs text-gray-600 mt-1">
+                      Rust WASM + AES-GCM
+                    </div>
+                  </div>
+                  <div className="bg-white rounded-lg p-3 shadow-sm">
+                    <div className="text-purple-600 font-semibold text-sm">
+                      Storage
+                    </div>
+                    <div className="text-xs text-gray-600 mt-1">
+                      Pinata IPFS Gateway
+                    </div>
+                  </div>
+                  <div className="bg-white rounded-lg p-3 shadow-sm">
+                    <div className="text-orange-600 font-semibold text-sm">
+                      Time Lock
+                    </div>
+                    <div className="text-xs text-gray-600 mt-1">
+                      Move Smart Contract
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Detailed Steps */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6">
               <div className="text-center">
                 <div className="bg-blue-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
                   <span className="text-blue-600 font-bold text-xl">1</span>
                 </div>
                 <h3 className="font-semibold mb-3 text-lg">Connect Wallet</h3>
-                <p className="text-gray-600">
-                  Connect your Sui wallet to authenticate and manage your
-                  capsules securely
+                <p className="text-gray-600 text-sm">
+                  Connect your Sui wallet to authenticate. Your wallet's private
+                  key will be used for encryption key derivation.
                 </p>
               </div>
+
               <div className="text-center">
                 <div className="bg-green-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
                   <span className="text-green-600 font-bold text-xl">2</span>
                 </div>
-                <h3 className="font-semibold mb-3 text-lg">Write Message</h3>
-                <p className="text-gray-600">
-                  Enter your message and set the unlock date and time for the
-                  future
+                <h3 className="font-semibold mb-3 text-lg">Write Content</h3>
+                <p className="text-gray-600 text-sm">
+                  Enter your message and set the unlock date. The content can be
+                  text, files, or any data you want to preserve.
                 </p>
               </div>
+
               <div className="text-center">
                 <div className="bg-purple-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
                   <span className="text-purple-600 font-bold text-xl">3</span>
                 </div>
-                <h3 className="font-semibold mb-3 text-lg">Store on IPFS</h3>
-                <p className="text-gray-600">
-                  Your message is uploaded to IPFS via Pinata for decentralized
-                  storage
+                <h3 className="font-semibold mb-3 text-lg">WASM Encryption</h3>
+                <p className="text-gray-600 text-sm">
+                  Content is encrypted using Rust WASM with AES-GCM. Encryption
+                  key is derived from your wallet signature.
                 </p>
               </div>
+
+              <div className="text-center">
+                <div className="bg-indigo-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
+                  <span className="text-indigo-600 font-bold text-xl">4</span>
+                </div>
+                <h3 className="font-semibold mb-3 text-lg">IPFS Storage</h3>
+                <p className="text-gray-600 text-sm">
+                  Encrypted content is uploaded to IPFS via Pinata for
+                  decentralized, immutable storage.
+                </p>
+              </div>
+
               <div className="text-center">
                 <div className="bg-orange-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
-                  <span className="text-orange-600 font-bold text-xl">4</span>
+                  <span className="text-orange-600 font-bold text-xl">5</span>
                 </div>
-                <h3 className="font-semibold mb-3 text-lg">Unlock & Access</h3>
-                <p className="text-gray-600">
-                  Access your content when the time condition is met, enforced
-                  by blockchain
+                <h3 className="font-semibold mb-3 text-lg">Blockchain Lock</h3>
+                <p className="text-gray-600 text-sm">
+                  Time capsule metadata and unlock conditions are stored on Sui
+                  blockchain with smart contract enforcement.
+                </p>
+              </div>
+
+              <div className="text-center">
+                <div className="bg-red-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
+                  <span className="text-red-600 font-bold text-xl">6</span>
+                </div>
+                <h3 className="font-semibold mb-3 text-lg">Unlock & Decrypt</h3>
+                <p className="text-gray-600 text-sm">
+                  When time condition is met, use your wallet to decrypt
+                  content. WASM handles key derivation and decryption.
                 </p>
               </div>
             </div>
