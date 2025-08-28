@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { WalletConnection } from "./WalletConnection";
 
 interface HeaderProps {
@@ -14,7 +15,10 @@ export function Header({ activeTab, onTabChange }: HeaderProps) {
         <div className="flex justify-between items-center h-16">
           {/* Logo and Brand */}
           <div className="flex items-center">
-            <div className="flex-shrink-0 flex items-center">
+            <Link
+              href="/"
+              className="flex-shrink-0 flex items-center hover:opacity-80 transition-opacity cursor-pointer"
+            >
               <div className="text-2xl mr-3">⏰</div>
               <div>
                 <h1 className="text-xl font-bold text-gray-900">TimeCapsule</h1>
@@ -22,7 +26,7 @@ export function Header({ activeTab, onTabChange }: HeaderProps) {
                   Decentralized Time Storage
                 </p>
               </div>
-            </div>
+            </Link>
           </div>
 
           {/* Desktop Navigation */}
