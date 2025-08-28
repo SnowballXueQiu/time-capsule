@@ -22,6 +22,10 @@ export function SimpleCapsuleList({ onUnlock }: CapsuleListProps) {
   const [capsules, setCapsules] = useState<SimpleCapsule[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [processingProgress, setProcessingProgress] = useState<{
+    current: number;
+    total: number;
+  } | null>(null);
 
   useEffect(() => {
     if (currentAccount?.address) {
@@ -29,39 +33,23 @@ export function SimpleCapsuleList({ onUnlock }: CapsuleListProps) {
     }
   }, [currentAccount?.address]);
 
-  const loadCapsules = async () => {
-    if (!currentAccount?.address) return;
+  // Process capsules in batches using RAF to prevent UI blocking
+  const processCapsulesBatched = async (
+    events: any[],
+    client: SuiClient,
+    parsedCapsules: SimpleCapsule[]
+  ) => {
+    const BATCH_SIZE = 3; // Process 3 capsules per frame
+    let currentIndex = 0;
 
-    setLoading(true);
-    setError(null);
+    return new Promise<void>((resolve) => {
+      const processBatch = async () => {
+        const endIndex = Math.min(currentIndex + BATCH_SIZE, events.length);
 
-    try {
-      const client = new SuiClient({ url: getFullnodeUrl("testnet") });
+        for (let i = currentIndex; i < endIndex; i++) {
+          const event = events[i];
+          const eventData = event.parsedJson as any;
 
-      console.log("Loading capsules for address:", currentAccount.address);
-      console.log("Package ID:", process.env.NEXT_PUBLIC_PACKAGE_ID);
-
-      // Since time capsules are shared objects, we need to query events instead
-      // Query CapsuleCreated events to find capsules created by this user
-      const events = await client.queryEvents({
-        query: {
-          MoveEventType: `${process.env.NEXT_PUBLIC_PACKAGE_ID}::capsule::CapsuleCreated`,
-        },
-        limit: 50,
-        order: "descending",
-      });
-
-      console.log("Found events:", events);
-
-      const parsedCapsules: SimpleCapsule[] = [];
-
-      for (const event of events.data) {
-        const eventData = event.parsedJson as any;
-        console.log("Processing event:", eventData);
-
-        // Check if this capsule was created by the current user
-        if (eventData.owner === currentAccount.address) {
-          // Get the actual capsule object
           try {
             const capsuleResponse = await client.getObject({
               id: eventData.capsule_id,
@@ -87,7 +75,10 @@ export function SimpleCapsuleList({ onUnlock }: CapsuleListProps) {
               };
 
               parsedCapsules.push(capsule);
-              console.log("Added capsule:", capsule);
+
+              // Update progress and UI incrementally
+              setProcessingProgress({ current: i + 1, total: events.length });
+              setCapsules([...parsedCapsules]); // Show capsules as they load
             }
           } catch (objError) {
             console.warn(
@@ -97,9 +88,60 @@ export function SimpleCapsuleList({ onUnlock }: CapsuleListProps) {
             );
           }
         }
-      }
+
+        currentIndex = endIndex;
+
+        if (currentIndex < events.length) {
+          // Schedule next batch
+          requestAnimationFrame(() => {
+            setTimeout(processBatch, 0); // Small delay to prevent overwhelming
+          });
+        } else {
+          resolve();
+        }
+      };
+
+      processBatch();
+    });
+  };
+
+  const loadCapsules = async () => {
+    if (!currentAccount?.address) return;
+
+    setLoading(true);
+    setError(null);
+    setCapsules([]); // Clear existing capsules
+
+    try {
+      const client = new SuiClient({ url: getFullnodeUrl("testnet") });
+
+      console.log("Loading capsules for address:", currentAccount.address);
+      console.log("Package ID:", process.env.NEXT_PUBLIC_PACKAGE_ID);
+
+      // Since time capsules are shared objects, we need to query events instead
+      // Query CapsuleCreated events to find capsules created by this user
+      const events = await client.queryEvents({
+        query: {
+          MoveEventType: `${process.env.NEXT_PUBLIC_PACKAGE_ID}::capsule::CapsuleCreated`,
+        },
+        limit: 50,
+        order: "descending",
+      });
+
+      console.log("Found events:", events);
+
+      const parsedCapsules: SimpleCapsule[] = [];
+      const userEvents = events.data.filter(
+        (event) => (event.parsedJson as any).owner === currentAccount.address
+      );
+
+      setProcessingProgress({ current: 0, total: userEvents.length });
+
+      // Process capsules in batches using RAF to prevent UI blocking
+      await processCapsulesBatched(userEvents, client, parsedCapsules);
 
       setCapsules(parsedCapsules);
+      setProcessingProgress(null);
       console.log("Total capsules loaded:", parsedCapsules.length);
     } catch (err) {
       console.error("Error loading capsules:", err);
@@ -153,12 +195,30 @@ export function SimpleCapsuleList({ onUnlock }: CapsuleListProps) {
   if (loading) {
     return (
       <div className="bg-white rounded-lg shadow-md p-8">
-        <div className="animate-pulse">
-          <div className="h-4 bg-gray-200 rounded w-1/4 mb-4"></div>
-          <div className="space-y-3">
-            <div className="h-4 bg-gray-200 rounded"></div>
-            <div className="h-4 bg-gray-200 rounded w-5/6"></div>
-          </div>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">
+            Loading Capsules...
+          </h3>
+          {processingProgress && (
+            <div className="mt-4">
+              <div className="bg-gray-200 rounded-full h-2 mb-2">
+                <div
+                  className="bg-blue-500 h-2 rounded-full transition-all duration-300"
+                  style={{
+                    width: `${
+                      (processingProgress.current / processingProgress.total) *
+                      100
+                    }%`,
+                  }}
+                ></div>
+              </div>
+              <p className="text-sm text-gray-600">
+                Processing {processingProgress.current} of{" "}
+                {processingProgress.total} capsules...
+              </p>
+            </div>
+          )}
         </div>
       </div>
     );
