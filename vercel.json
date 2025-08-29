@@ -1,0 +1,53 @@
+{
+  "version": 2,
+  "buildCommand": "pnpm build",
+  "outputDirectory": "apps/web/.next",
+  "installCommand": "pnpm install --frozen-lockfile --ignore-scripts",
+  "framework": "nextjs",
+  "rootDirectory": "./",
+  "builds": [
+    {
+      "src": "apps/web/package.json",
+      "use": "@vercel/next"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "apps/web/$1"
+    }
+  ],
+  "functions": {
+    "apps/web/src/app/**": {
+      "maxDuration": 30
+    }
+  },
+  "headers": [
+    {
+      "source": "/(.*)\\.wasm",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "application/wasm"
+        },
+        {
+          "key": "Cross-Origin-Embedder-Policy",
+          "value": "require-corp"
+        },
+        {
+          "key": "Cross-Origin-Opener-Policy",
+          "value": "same-origin"
+        }
+      ]
+    }
+  ],
+  "env": {
+    "NEXT_PUBLIC_SUI_NETWORK": "testnet",
+    "NEXT_PUBLIC_PACKAGE_ID": "",
+    "NEXT_PUBLIC_SUI_RPC_URL": "https://fullnode.testnet.sui.io:443",
+    "NEXT_PUBLIC_PINATA_GATEWAY": "https://gateway.pinata.cloud",
+    "NEXT_PUBLIC_PINATA_API_KEY": "",
+    "NEXT_PUBLIC_PINATA_API_SECRET": "",
+    "NEXT_PUBLIC_PINATA_JWT": ""
+  }
+}
