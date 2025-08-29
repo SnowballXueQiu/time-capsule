@@ -523,6 +523,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - [Sui Foundation](https://sui.io/) for the blockchain infrastructure
 - [IPFS](https://ipfs.io/) and [Pinata](https://pinata.cloud/) for decentralized storage
 - [Rust](https://www.rust-lang.org/) and [WebAssembly](https://webassembly.org/) communities
+- Logo design by [@damesck233](https://github.com/damesck233) - Beautiful time capsule logo design
 - All contributors and testers
 
 ## 📞 Support

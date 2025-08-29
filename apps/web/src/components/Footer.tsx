@@ -145,6 +145,27 @@ export function Footer() {
                 </svg>
                 Project Repository
               </a>
+              <a
+                href="https://github.com/damesck233"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center text-sm text-gray-600 hover:text-blue-600 transition-colors group"
+              >
+                <svg
+                  className="w-4 h-4 mr-2 group-hover:scale-110 transition-transform"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zM7 3H5a2 2 0 00-2 2v12a4 4 0 004 4h2M9 3h6a2 2 0 012 2v12a4 4 0 01-4 4H9m8-16v12a4 4 0 01-4 4"
+                  />
+                </svg>
+                Logo by @damesck233
+              </a>
               <div className="text-sm text-gray-500">MIT License</div>
             </div>
           </div>
