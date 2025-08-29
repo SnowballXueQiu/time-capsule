@@ -54,7 +54,11 @@ export default function Home() {
               activeTab === "create" ? "block" : "hidden md:block"
             }`}
           >
-            <div className="text-6xl mb-4">⏰</div>
+            <img
+              src="/logo.svg"
+              alt="TimeCapsule Logo"
+              className="w-24 h-24 mb-4 mx-auto"
+            />
             <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
               Decentralized Time Capsule
             </h1>

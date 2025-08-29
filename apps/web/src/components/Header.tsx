@@ -19,7 +19,11 @@ export function Header({ activeTab, onTabChange }: HeaderProps) {
               href="/"
               className="flex-shrink-0 flex items-center hover:opacity-80 transition-opacity cursor-pointer"
             >
-              <div className="text-2xl mr-3">⏰</div>
+              <img
+                src="/logo.svg"
+                alt="TimeCapsule Logo"
+                className="w-8 h-8 mr-3"
+              />
               <div>
                 <h1 className="text-xl font-bold text-gray-900">TimeCapsule</h1>
                 <p className="text-xs text-gray-500 hidden sm:block">

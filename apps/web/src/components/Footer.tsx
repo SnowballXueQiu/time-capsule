@@ -19,7 +19,11 @@ export function Footer() {
           {/* Brand Section */}
           <div className="space-y-4">
             <div className="flex items-center">
-              <div className="text-2xl mr-3">⏰</div>
+              <img
+                src="/logo.svg"
+                alt="TimeCapsule Logo"
+                className="w-6 h-6 mr-3"
+              />
               <div>
                 <h3 className="text-lg font-semibold text-gray-900">
                   TimeCapsule

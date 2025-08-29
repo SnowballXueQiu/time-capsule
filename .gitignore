@@ -75,7 +75,6 @@ jspm_packages/
 
 # Gatsby files
 .cache/
-public
 
 # Build caches and artifacts
 .turbo/

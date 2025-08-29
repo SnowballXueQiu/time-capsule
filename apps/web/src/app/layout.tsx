@@ -6,6 +6,11 @@ export const metadata: Metadata = {
   title: "Decentralized Time Capsule",
   description:
     "Store encrypted content with blockchain-based unlock conditions",
+  icons: {
+    icon: "/logo.svg",
+    shortcut: "/logo.svg",
+    apple: "/logo.svg",
+  },
 };
 
 import { SuiProvider } from "../providers/SuiProvider";
