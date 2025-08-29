@@ -1,5 +1,5 @@
 {
-  "buildCommand": "pnpm build",
+  "buildCommand": "pnpm --filter=@time-capsule/sdk build && pnpm --filter=@time-capsule/web build",
   "outputDirectory": "apps/web/.next",
   "installCommand": "pnpm install --frozen-lockfile --ignore-scripts",
   "framework": "nextjs",
